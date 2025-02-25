@@ -1,7 +1,7 @@
 import logging
 from colorlog import ColoredFormatter
 
-logger = logging.getLogger("puhhpy")
+logger = logging.getLogger("microhhpy")
 logger.setLevel(logging.DEBUG)
 
 if not logger.handlers:

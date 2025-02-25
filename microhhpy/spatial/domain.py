@@ -27,7 +27,7 @@ import numpy as np
 
 # Local library
 from .projection import Projection
-from puhhpy.logger import logger
+from microhhpy.logger import logger
 
 
 class Domain:

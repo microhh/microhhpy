@@ -27,7 +27,7 @@ import numpy as np
 from numba import jit, prange
 
 # Local library
-from puhhpy.logger import logger
+from microhhpy.logger import logger
 
 
 @jit(nopython=True, nogil=True, fastmath=True)

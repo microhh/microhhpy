@@ -26,8 +26,8 @@
 import numpy as np
 
 # Local library
-import puhhpy.constants as cst
-from puhhpy.spatial import Vertical_grid_2nd
+import microhhpy.constants as cst
+from microhhpy.spatial import Vertical_grid_2nd
 
 from .base_thermo import exner, virtual_temperature, sat_adjust
 

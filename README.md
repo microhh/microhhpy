@@ -1,19 +1,18 @@
-# PUHHPY
-### Python MicroHH open-boundary Pre-processor 4 You.
+# MicroHHpy
 
-Yes, worst name ever. Suggestions are welcome.
+Python package with utility functions for working with MicroHH LES/DNS.
 
 ### Usage
-Either add the `puhhpy` package location to your `PYTHONPATH`:
+Either add the `microhhpy` package location to your `PYTHONPATH`:
 
-    export PYTHONPATH="${PYTHONPATH}:/path/to/microhh/python/puhhpy"
+    export PYTHONPATH="${PYTHONPATH}:/path/to/microhhpy"
 
-Or specify the path using `sys`, before importing `puhppy`:
+Or specify the path using `sys`, before importing `microhhpy`:
 
     import sys
-    sys.path.append('/path/to/microhh/python/puhhpy')
+    sys.path.append('/path/to/microhhpy')
 
-Now `puhhpy` should be available as an import, e.g.
+Now `microhhpy` should be available as an import, e.g.:
 
-    from puhhpy.spatial import Domain
-    from puhhpy.spatial import Projection
+    from microhhpy.spatial import Domain
+    from microhhpy.spatial import Projection

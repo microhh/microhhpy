@@ -26,7 +26,7 @@
 import numpy as np
 
 # Local library
-from puhhpy.logger import logger
+from microhhpy.logger import logger
 from .interpolate_kernels import Rect_to_curv_interpolation_factors
 
 def interp_rect_to_curv_latlon(
@@ -60,12 +60,12 @@ def interp_rect_to_curv_latlon(
 
         IMPORTANT:  
         For the divergence correction to work correctly, the input base state density and vertical grid definition  
-        must precisely match the MicroHH definition. Use `puhhpy.spatial.Vertical_grid_2nd` to calculate the vertical grid  
+        must precisely match the MicroHH definition. Use `microhhpy.spatial.Vertical_grid_2nd` to calculate the vertical grid  
         information correctly.
 
         Arguments:
         ----------
-        proj_pad : `puhhpy.spatial.Projection` instance.
+        proj_pad : `microhhpy.spatial.Projection` instance.
             Output projection definition, with ghost cells.
         z_out : np.ndarray, shape (1,)
             Output full levels (m).

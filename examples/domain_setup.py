@@ -107,7 +107,7 @@ def domain_setup_with_proj():
     """
     Using the projection.
     Each domain has `.proj` instance that contains the lat/lon coordinates
-    (see docstring of `puhhpy.spatial.Projection`), and can do x/y <-> lon/lat transforms.
+    (see docstring of `microhhpy.spatial.Projection`), and can do x/y <-> lon/lat transforms.
     """
     x,y = d0.proj.to_xy(4.92, 51.97)
     lon,lat = d0.proj.to_lonlat(x, y)
