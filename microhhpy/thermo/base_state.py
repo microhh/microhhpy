@@ -38,12 +38,13 @@ class Basestate_moist:
         Calculate moist thermodynamic base state,
         using a procedure identical to MicroHH.
         """
+
         gd = Vertical_grid_2nd(z, zsize, dtype=dtype)
 
         self.gd = gd
         self.remove_ghost = remove_ghost
         self.dtype = dtype
-        
+
         self.pref = np.zeros(gd.kcells)
         self.prefh = np.zeros(gd.kcells)
 
