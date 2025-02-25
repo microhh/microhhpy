@@ -2,6 +2,9 @@
 
 Python package with utility functions for working with MicroHH LES/DNS.
 
+> [!IMPORTANT]  
+> This Python package is available on PyPI (https://pypi.org/project/microhhpy/), but mostly as a placeholder. Since `microhhpy` is actively developing and unstable, the PyPI version may be outdated.
+
 ### Usage
 Either add the `microhhpy` package location to your `PYTHONPATH`:
 
