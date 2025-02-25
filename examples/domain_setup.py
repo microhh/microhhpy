@@ -35,19 +35,21 @@ def domain_setup_without_proj():
     Specify domains.
     """
     d0 = Domain(
-         xsize=3200,
-         ysize=3200,
-         itot=32,
-         jtot=32
-         )
+        xsize=3200,
+        ysize=3200,
+        itot=32,
+        jtot=32,
+        n_ghost=3,
+        )
 
     d1 = Domain(
         xsize=1600,
         ysize=1600,
         itot=32,
         jtot=32,
+        n_ghost=3,
         parent=d0,
-        center_in_parent=True
+        center_in_parent=True,
         )
 
     d2 = Domain(
@@ -55,9 +57,10 @@ def domain_setup_without_proj():
         ysize=800,
         itot=32,
         jtot=32,
+        n_ghost=3,
         parent=d1,
         xstart_in_parent=200,
-        ystart_in_parent=200
+        ystart_in_parent=200,
         )
 
     d0.child = d1
@@ -76,21 +79,23 @@ def domain_setup_with_proj():
     Specify domains.
     """
     d0 = Domain(
-         xsize=128000,
-         ysize=128000,
-         itot=64,
-         jtot=64,
-         lon=4.92,
-         lat=51.97,
-         anchor='center',
-         proj_str='+proj=utm +zone=31 +ellps=intl +towgs84=-87,-98,-121,0,0,0,0 +units=m +no_defs +type=crs'
-         )
+        xsize=128000,
+        ysize=128000,
+        itot=64,
+        jtot=64,
+        n_ghost=3,
+        lon=4.92,
+        lat=51.97,
+        anchor='center',
+        proj_str='+proj=utm +zone=31 +ellps=intl +towgs84=-87,-98,-121,0,0,0,0 +units=m +no_defs +type=crs'
+        )
 
     d1 = Domain(
         xsize=64000,
         ysize=64000,
         itot=64,
         jtot=64,
+        n_ghost=3,
         parent=d0,
         center_in_parent=True
         )
