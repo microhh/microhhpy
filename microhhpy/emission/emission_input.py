@@ -134,6 +134,9 @@ class Emission_input:
             Datatype used by MicroHH.
         """
 
+        if isinstance(times, list):
+            times = np.array(times)
+
         self.times = times
         self.fields = fields
         self.rho_ref = rho_ref
