@@ -294,8 +294,9 @@ class Emission_input:
             emiss_sum = emission[:,:,:,:].sum(axis=(0,2,3))
 
             # Max height where total emission is positive.
-            emiss_pos = np.where(emiss_sum > 0)[0]
-            self.kmax = max(self.kmax, emiss_pos[-1]+1)
+            if emiss_sum.max() > 0:
+                emiss_pos = np.where(emiss_sum > 0)[0]
+                self.kmax = max(self.kmax, emiss_pos[-1]+1)
 
         # Clip fields.
         for field, emission in self.data.items():
