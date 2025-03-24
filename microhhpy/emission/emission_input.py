@@ -252,6 +252,35 @@ class Emission_input:
         self.data[field][t,k,j,i] += strength / (volume * self.rho_ref[k])
 
 
+    def add_manual(self, field, value, time, x0, y0, z0):
+        """
+        Add single point source, without normalisation.
+
+        Parameters
+        ----------
+        field : string
+            Emission field name.
+        value : float
+            Emission value (..).
+        time : int
+            Emission time (s).
+        x0 : float
+            Center (x) of emission (m).
+        y0 : float
+            Center (y) of emission (m).
+        z0 : float
+            Center (z) of emission (m) .
+        """
+
+        t = self.get_index(time)
+
+        i = np.abs(self.x - x0).argmin()
+        j = np.abs(self.y - y0).argmin()
+        k = np.abs(self.z - z0).argmin()
+
+        self.data[field][t,k,j,i] += value
+
+
     def clip(self):
         """
         Clip 3D fields to required vertical extent.
