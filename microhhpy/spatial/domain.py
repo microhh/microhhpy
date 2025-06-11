@@ -193,9 +193,9 @@ class Domain:
 
         if self.proj is not None:
             # Create projection with padding for interpolation horizontal ghost cells.
-
-            itot_p = self.itot + 2*n_ghost
-            jtot_p = self.jtot + 2*n_ghost
+            # Add one extra ghost cell, needed for `u` at east boundary and `v` at north.
+            itot_p = self.itot + 2 * (n_ghost+1)
+            jtot_p = self.jtot + 2 * (n_ghost+1)
 
             xsize_p = itot_p * self.dx
             ysize_p = jtot_p * self.dy
@@ -268,7 +268,7 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False):
             if scatter_lonlat:
                 plt.scatter(d.proj.lon_h, d.proj.lat_h, s=1, transform=ccrs.PlateCarree())
 
-        plt.legend()
+        plt.legend(loc='upper left')
 
         ax.set_extent(extent)
 

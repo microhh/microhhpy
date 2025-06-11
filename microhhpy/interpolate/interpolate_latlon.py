@@ -30,7 +30,7 @@ from microhhpy.logger import logger
 from .interpolate_kernels import Rect_to_curv_interpolation_factors
 
 def interp_rect_to_curv_latlon(
-        proj_pad,
+        proj,
         z_out,
         zh_out,
         fields_in,
@@ -40,14 +40,15 @@ def interp_rect_to_curv_latlon(
         zh_in,
         rho_in,
         rhoh_in,
-        output_dir='.',
-        dtype=np.float64):
+        output_dir,
+        correct_div_h,
+        dtype):
         """
         Interpolate the fields in the `fields_in` dictionary to the output lon/lat grid defined by the `proj` projection instance..
 
         Input requirements:
         - All 3D input fields must have dimensions `(level, lat, lon)`.
-        - The input `lon_in` and `lat_in` must be one-dimensional, as only regulare lat/lon grids (e.g. ERA5) are supported.
+        - The input `lon_in` and `lat_in` must be one-dimensional, as only a rectilinear input grid (e.g. ERA5) is supported.
 
         Output:
         - Each interpolated field is stored in binary format at `f'{output_dir}/{name}.0000000'`.
@@ -55,7 +56,7 @@ def interp_rect_to_curv_latlon(
         Special handling for velocity fields:
         If `u`, `v`, and `w` are present in `fields_in`, they are interpolated and corrected 
         to be divergence-free. This correction uses the base state density and vertical grid definition
-        from MicroHH, and ensures that the mean output vertical velocity matches the mean input vertical
+        from MicroHH, and ensures that the domain mean vertical velocity matches the mean input vertical
         velocity, by applying small corrections to the domain-mean horizontal divergence.
 
         IMPORTANT:  
@@ -65,7 +66,7 @@ def interp_rect_to_curv_latlon(
 
         Arguments:
         ----------
-        proj_pad : `microhhpy.spatial.Projection` instance.
+        proj : `microhhpy.spatial.Projection` instance.
             Output projection definition, with ghost cells.
         z_out : np.ndarray, shape (1,)
             Output full levels (m).
@@ -82,13 +83,16 @@ def interp_rect_to_curv_latlon(
             Input full level height (m).
         zh_in : np.ndarray, shape (3,)
             Input half level height (m).
-        rhoref : np.ndarray, shape (1,)
+        rho_in : np.ndarray, shape (1,)
             Input full level base state density (kg m-3).
-        rhorefh : np.ndarray, shape (1,)
+        rhoh_in : np.ndarray, shape (1,)
             Input half level base state density (kg m-3).
         output_dir : str
             Path where the binaries are saved.
-
+        dtype : np.float32 or np.float64
+            Floating point precision output.
+        correct_div_h : bool
+            Correct horizontal divergence to match input to output mean velocity.
         Returns:
         --------
         None
@@ -113,20 +117,30 @@ def interp_rect_to_curv_latlon(
         # Interpolation indexes/factors.
         if 'u' in fields_in.keys():
             if_u = Rect_to_curv_interpolation_factors(
-                lon_in, lat_in, proj_pad.lon_u, proj_pad.lat_u, dtype)
+                lon_in, lat_in, proj.lon_u, proj.lat_u, dtype)
 
         if 'v' in fields_in.keys():
             if_v = Rect_to_curv_interpolation_factors(
-                lon_in, lat_in, proj_pad.lon_v, proj_pad.lat_v, dtype)
+                lon_in, lat_in, proj.lon_v, proj.lat_v, dtype)
 
         if_s = Rect_to_curv_interpolation_factors(
-            lon_in, lat_in, proj_pad.lon, proj_pad.lat, dtype)
+            lon_in, lat_in, proj.lon, proj.lat, dtype)
 
-        """
-        If all momentum fields are present, correct horizontal velocities.
-        """
-        processed_uvw = False
-        if 'u' in fields_in.keys() and 'v' in fields_in.keys() and 'w' in fields_in.keys():
-            logger.debug('all momentum fields present, correction horizontal divergence.')
+        # Momentum fields.
+        if correct_div_h:
+            if not all(key in fields_in for key in ['u', 'v', 'w']):
+                logger.critical('Divergence correction requires u+v+w fields.')
+
+            logger.debug('Processing u+v+w and correction divergence.')
+
+            u = np.zeros(())
+
+
+
+
+
+
 
             processed_uvw = True
+
+

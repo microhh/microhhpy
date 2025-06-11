@@ -162,3 +162,168 @@ class Rect_to_curv_interpolation_factors:
                 lon_in, lat_in,
                 lon_out, lat_out,
                 TF=dtype)
+
+
+@jit(nopython=True, nogil=True, fastmath=True, parallel=True)
+def interpolate_rect_to_curv(
+        fld_out,
+        fld_in,
+        il,
+        jl,
+        fx,
+        fy,
+        z_out,
+        z_in,
+        dtype):
+    """
+    Fast bi- or tri-linear interpolation of ERA5 onto LES grid, using horizontal interpolation
+    factors pre-calculated with `Rect_to_curv_interpolation_factors()`.
+
+    NOTE: If `fld_out.ndim == 2` and `fld_in.ndim == 3`, `z_out` needs to be a float.
+          In this case, a 3D input fields is interpolated to a single fixed height.
+
+    Arguments:
+    ---------
+    fld_out : np.ndarray, shape (2,) or shape (3,)
+        Output field on curve-linear grid.
+    fld_in : np.ndarray, shape (2,) or shape (3,)
+        Input field on rectilinear grid.
+    il : np.ndarray, shape (2,)
+        Index west of output grid point in input dataset.
+    jl : np.ndarray, shape (2,)
+        Index south of output grid point in input dataset.
+    fx : np.ndarray, shape (2,)
+        Interpolation factor x-direction.
+    fy : np.ndarray, shape (2,)
+        Interpolation factor y-direction.
+    z_out : np.ndarray, shape (1,) or single float
+        Heights of output model levels
+    z_in : np.ndarray, shape (3,)
+        Heights of input model levels.
+    dtype : Numpy float type
+        Numpy floating point datatype.
+
+    Returns:
+    -------
+    None
+    """
+    TF = dtype
+
+    if fld_out.ndim == 2 and fld_in.ndim == 3:
+        """
+        3D ERA5 field to 2D LES field at fixed height.
+        """
+        # Checks.
+        if isinstance(z_in, np.ndarray):
+            if z_out.size > 1:
+                raise Exception('3D to 2D interpolation, but multiple output heights provided (z_out.size > 1).')
+            else:
+                z_out = z_out[0]
+
+        jtot_les, itot_les = fld_out.shape
+        ktot_era, jtot_era, itot_era = fld_in.shape
+
+        # Step 1: interpolate ERA to fixed height.
+        tmp = np.zeros((jtot_era, itot_era), TF)
+
+        for j in prange(jtot_era):
+            for i in prange(itot_era):
+
+                k0 = int(_index_left_oob(z_in[:,j,i], z_out, ktot_era))
+
+                fzl = TF(1) - ((z_out - z_in[k0,j,i]) / (z_in[k0+1,j,i] - z_in[k0,j,i]))
+                fzr = TF(1) - fzl
+
+                tmp[j,i] = fzl * fld_in[k0,j,i] + fzr * fld_in[k0+1,j,i]
+
+        # Step 2: horizontal interpolation from ERA to LES grid.
+        for j in prange(jtot_les):
+            for i in prange(itot_les):
+
+                # Short cuts
+                ill = il[j,i]
+                jll = jl[j,i]
+
+                fxl = fx[j,i]
+                fxr = TF(1) - fxl
+
+                fyl = fy[j,i]
+                fyr = TF(1) - fyl
+
+                fld_out[j,i] =  \
+                        fxl * fyl * tmp[jll,   ill  ] + \
+                        fxr * fyl * tmp[jll,   ill+1] + \
+                        fxl * fyr * tmp[jll+1, ill  ] + \
+                        fxr * fyr * tmp[jll+1, ill+1]
+
+    elif fld_out.ndim == 2:
+        """
+        2D ERA5 field to 2D LES field.
+        """
+        jtot_les, itot_les = fld_out.shape
+        jtot_era, itot_era = fld_in.shape
+
+        for j in prange(jtot_les):
+            for i in prange(itot_les):
+
+                # Short cuts
+                ill = il[j,i]
+                jll = jl[j,i]
+
+                fxl = fx[j,i]
+                fxr = TF(1) - fxl
+
+                fyl = fy[j,i]
+                fyr = TF(1) - fyl
+
+                fld_out[j,i] =  \
+                        fxl * fyl * fld_in[jll,   ill  ] + \
+                        fxr * fyl * fld_in[jll,   ill+1] + \
+                        fxl * fyr * fld_in[jll+1, ill  ] + \
+                        fxr * fyr * fld_in[jll+1, ill+1]
+
+    elif fld_out.ndim == 3:
+        """
+        3D ERA5 field to 3D LES field.
+        """
+        ktot_les, jtot_les, itot_les = fld_out.shape
+        ktot_era, jtot_era, itot_era = fld_in.shape
+
+        tmp = np.zeros((jtot_era, itot_era), TF)
+
+        # NOTE to self: don't make outer loop parallel.
+        for k in range(ktot_les):
+
+            # Step 1. Interpolate ERA5 to fixed height.
+            for j in prange(jtot_era):
+                for i in prange(itot_era):
+
+                    k0 = int(_index_left_oob(z_in[:,j,i], z_out[k], ktot_era))
+
+                    fzl = TF(1) - ((z_out[k] - z_in[k0,j,i]) / (z_in[k0+1,j,i] - z_in[k0,j,i]))
+                    fzr = TF(1) - fzl
+
+                    tmp[j,i] = fzl * fld_in[k0,j,i] + fzr * fld_in[k0+1,j,i]
+
+            # Step 2: horizontal interpolation from ERA to LES grid.
+            for j in prange(jtot_les):
+                for i in prange(itot_les):
+
+                    # Short cuts
+                    ill = il[j,i]
+                    jll = jl[j,i]
+
+                    fxl = fx[j,i]
+                    fxr = TF(1) - fxl
+
+                    fyl = fy[j,i]
+                    fyr = TF(1) - fyl
+
+                    fld_out[k,j,i] =  \
+                            fxl * fyl * tmp[jll,   ill  ] + \
+                            fxr * fyl * tmp[jll,   ill+1] + \
+                            fxl * fyr * tmp[jll+1, ill  ] + \
+                            fxr * fyr * tmp[jll+1, ill+1]
+
+    else:
+        raise Exception('Invalid input for interpolating ERA5 to LES!')

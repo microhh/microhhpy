@@ -155,21 +155,21 @@ class Basestate_moist:
 
 
     # This needs to be updated for the new main/develop.
-    #def to_binary(self, grid_file):
-    #    """
-    #    Save base state in format required by MicroHH.
-    #    """
+    def to_binary(self, grid_file):
+        """
+        Save base state in format required by MicroHH.
+        """
 
-    #    if self.remove_ghost:
-    #        rho = self.rho
-    #        rhoh = self.rhoh
-    #    else:
-    #        gd = self.gd
-    #        rho = self.rho[gd.kstart:gd.kend]
-    #        rhoh = self.rhoh[gd.kstart:gd.kend+1]
+        if self.remove_ghost:
+            rho = self.rho
+            rhoh = self.rhoh
+        else:
+            gd = self.gd
+            rho = self.rho[gd.kstart:gd.kend]
+            rhoh = self.rhoh[gd.kstart:gd.kend+1]
 
-    #    bs = np.concatenate((rho, rhoh)).astype(self.dtype)
-    #    bs.tofile(grid_file)
+        bs = np.concatenate((rho, rhoh)).astype(self.dtype)
+        bs.tofile(grid_file)
 
 
 class Basestate_dry:
