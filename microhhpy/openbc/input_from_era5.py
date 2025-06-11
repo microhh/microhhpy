@@ -24,22 +24,56 @@
 
 # Third-party.
 import numpy as np
+from numba import jit
 from scipy.ndimage import gaussian_filter
+
+# TMP
+import matplotlib.pyplot as plt
 
 # Local library
 from microhhpy.logger import logger
 from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation_factors
 from microhhpy.interpolate.interpolate_kernels import interpolate_rect_to_curv
 
+
 def _strip_mask(array):
+    """
+    Remote mask from Numpy array if present. Numba does not like masked arrays...
+    """
     if isinstance(array, np.ma.MaskedArray):
         return array.data
     else:
         return array
 
+
 def _gaussian_filter(fld, sigma):
+    """
+    Wrapper around Scipy's `gaussian_filter`. Older version don't support the axis keyword,
+    so manually loop over height. This does not influence performance.
+    """
     for k in range(fld.shape[0]):
         fld[k,:,:] = gaussian_filter(fld[k,:,:], sigma, mode='nearest')
+
+
+@jit(nopython=True, nogil=True, fastmath=True)
+def _blend_w_kernel(w, z, zmax):
+    """
+    Blend `w` towards zero at the surface, from a height `zmax` down.
+    """
+    kmax = np.argmin(np.abs(z - zmax))
+    zmax = z[kmax]
+
+    _, jtot, itot = w.shape
+
+    for j in range(jtot):
+        for i in range(itot):
+            dwdz = w[kmax,j,i] / zmax
+
+            for k in range(kmax):
+                f = z[k] / zmax
+                w[k,j,i] = f * w[k,j,i] + (1-f) * dwdz * z[k]
+
+
 
 
 def create_initial_fields_from_era5(
@@ -58,7 +92,58 @@ def create_initial_fields_from_era5(
         output_dir='.',
         dtype=np.float64):
 
-    # TO-DO: add input checks.
+    """
+    Inline/lambda help functions.
+    """
+    def save_field(fld, name):
+        """
+        Save 3D field without ghost cells to file.
+        """
+        if name_suffix == '':
+            f_out = f'{output_dir}/{name}.0000000'
+        else:
+            f_out = f'{output_dir}/{name}_{name_suffix}.0000000'
+
+        fld[s_int].tofile(f_out)
+
+
+    def get_interpolation_factors(name):
+        """
+        Get interpolation factors for a given field name.
+        """
+        if name == 'u':
+            return if_u
+        elif name == 'v':
+            return if_v
+        else:
+            return if_s
+
+
+    def interpolate(fld_les, name):
+        """
+        Tri-linear interpolation of ERA5 to LES grid,
+        """
+        logger.debug(f'Interpolating initial field {name} from ERA to LES')
+
+        if_loc = get_interpolation_factors(name)
+        z_loc = zh_les if name == 'w' else z_les
+
+        # Tri-linear interpolation from ERA5 to LES grid.
+        interpolate_rect_to_curv(
+            fld_les,
+            fields_era[name],
+            if_loc.il,
+            if_loc.jl,
+            if_loc.fx,
+            if_loc.fy,
+            z_loc,
+            z_era,
+            dtype)
+
+        # Apply Gaussian filter.
+        if sigma_n > 0:
+            _gaussian_filter(fld_les, sigma_n)
+
 
     proj_pad = domain.proj_pad
     n_pad = domain.n_ghost + 1
@@ -78,49 +163,59 @@ def create_initial_fields_from_era5(
     if_s = Rect_to_curv_interpolation_factors(
         lon_era, lat_era, proj_pad.lon, proj_pad.lat, dtype)
 
-    #if correct_div_h:
-    #    # Correct horizontal divergence to match mean ERA5 vertical velocity with mean LES velocity.
+    # LES field with ghost cells. Needed to make momentum fields divergence free,
+    # as this requires one ghost cell in the north- and east-most grid points.
+    dims_full = (z_les.size,   proj_pad.jtot, proj_pad.itot)
+    dims_half = (z_les.size+1, proj_pad.jtot, proj_pad.itot)
 
-    #    if not all(k in fields_era for k in ['u', 'v', 'w']):
-    #        logger.critical('Requested divergence correction, but u, v, or w missing!')
-
-    # LES field with ghost cells!
-    fld_les = np.empty((z_les.size, proj_pad.jtot, proj_pad.itot), dtype=dtype)
+    fld_full = np.empty(dims_full, dtype=dtype)
+    fld_half = np.empty(dims_half, dtype=dtype)
 
     # Numpy slice of domain without ghost cells.
     s_int = np.s_[:, n_pad:-n_pad, n_pad:-n_pad]
 
-    # Filter size from `m` to n grid cells.
+    # Filter size from meters to `n` grid cells.
     sigma_n = int(np.ceil(sigma_h / (6 * proj_pad.dx)))
     if sigma_n > 0:
         logger.debug(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
 
+
+    """
+    Parse the momentum fields separately if divergence correction is requested.
+    """
+    if correct_div_h:
+
+        if not all(fld in fields_era for fld in ['u', 'v', 'w']):
+            logger.critical('Requested divergence correction, but u, v, or w missing!')
+
+        u_les = np.empty(dims_full, dtype=dtype)
+        v_les = np.empty(dims_full, dtype=dtype)
+        w_les = np.empty(dims_half, dtype=dtype)
+
+        interpolate(u_les, 'u')
+        interpolate(v_les, 'v')
+        interpolate(w_les, 'w')
+
+        # Interpolated ERA5 `w_ls` sometimes has strange profiles near surface.
+        # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
+        _blend_w_kernel(w_les, z_les, zmax=500)
+
+        return u_les, v_les, w_les
+
+
+
+    """
+    Parse remaining fields.
+    """
+    exclude_fields = ('u', 'v', 'w') if correct_div_h else ()
+
     for name, fld_era in fields_era.items():
-        # Only process scalars.
-        if name not in ('u', 'v', 'w'):
+        if name not in exclude_fields:
 
-            logger.debug(f'Interpolating initial field {name} from ERA to LES')
+            fld = fld_half if name == 'w' else fld_full
+            
+            # Tri-linear interpolation from ERA5 to LES grid.
+            interpolate(fld, name)
 
-            # Tri-linear interpolation.
-            interpolate_rect_to_curv(
-                fld_les,
-                fld_era,
-                if_s.il,
-                if_s.jl,
-                if_s.fx,
-                if_s.fy,
-                z_les,
-                z_era,
-                dtype)
-
-            # Apply Gaussian filter.
-            if sigma_n > 0:
-                _gaussian_filter(fld_les, sigma_n)
-
-            # Save 3D field without ghost cells.
-            if name_suffix == '':
-                f_out = f'{output_dir}/{name}.0000000'
-            else:
-                f_out = f'{output_dir}/{name}_{name_suffix}.0000000'
-
-            fld_les[s_int].tofile(f_out)
+            # Save 3D field without ghost cells in binary format.
+            save_field(fld, name)

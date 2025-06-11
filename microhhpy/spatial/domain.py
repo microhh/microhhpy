@@ -243,8 +243,6 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False):
     import cartopy.io.img_tiles as cimgt
     import cartopy.feature as cfeature
 
-    plt.close('all')
-
     if use_projection:
         """
         Plot domains on map in lon/lat projection.
