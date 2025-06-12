@@ -101,6 +101,7 @@ class Domain:
         self.ysize = ysize
 
         self.n_ghost = n_ghost
+        self.n_pad = self.n_ghost + 1
 
         self.parent = parent
         self.child = child
@@ -109,6 +110,9 @@ class Domain:
 
         self.dx = xsize / itot
         self.dy = ysize / jtot
+
+        self.dxi = 1/self.dx
+        self.dyi = 1/self.dy
 
         self.x = np.arange(self.dx/2, self.xsize, self.dx)
         self.y = np.arange(self.dy/2, self.ysize, self.dy)
@@ -194,28 +198,28 @@ class Domain:
         if self.proj is not None:
             # Create projection with padding for interpolation horizontal ghost cells.
             # Add one extra ghost cell, needed for `u` at east boundary and `v` at north.
-            itot_p = self.itot + 2 * (n_ghost+1)
-            jtot_p = self.jtot + 2 * (n_ghost+1)
+            itot_pad = self.itot + 2 * self.n_pad
+            jtot_pad = self.jtot + 2 * self.n_pad
 
-            xsize_p = itot_p * self.dx
-            ysize_p = jtot_p * self.dy
+            xsize_p = itot_pad * self.dx
+            ysize_p = jtot_pad * self.dy
 
             self.proj_pad = Projection(
                     xsize_p,
                     ysize_p,
-                    itot_p,
-                    jtot_p,
+                    itot_pad,
+                    jtot_pad,
                     self.proj.central_lon,
                     self.proj.central_lat,
                     'center',
                     self.proj_str)
 
             # Define start/end indices
-            self.istart = n_ghost
-            self.iend = self.itot + n_ghost
+            self.istart_pad = self.n_pad
+            self.iend_pad = self.itot + self.n_pad
 
-            self.jstart = n_ghost
-            self.jend = self.jtot + n_ghost
+            self.jstart_pad = self.n_pad
+            self.jend_pad = self.jtot + self.n_pad
 
 
 def plot_domains(domains, use_projection=False, scatter_lonlat=False):

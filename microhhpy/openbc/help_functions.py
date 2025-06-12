@@ -50,6 +50,7 @@ def gaussian_filter_wrapper(fld, sigma):
         fld[k,:,:] = gaussian_filter(fld[k,:,:], sigma, mode='nearest')
 
 
+
 @jit(nopython=True, nogil=True, fastmath=True)
 def blend_w_to_zero_at_sfc(w, zh, zmax):
     """
@@ -89,7 +90,7 @@ def correct_div_uv(
         y,
         xsize,
         ysize,
-        npad):
+        n_pad):
     """
     Apply horizontal divergence correction to `u` and `v` fields so that their divergence
     matches the target from the large-scale subsidence `wls`.
@@ -122,24 +123,25 @@ def correct_div_uv(
         Domain width in x-direction.
     ysize : float
         Domain width in y-direction.
-    npad : int
+    n_pad : int
         Number of horizontal ghost cells in LES domain, including padding.
 
     Returns:
     -------
     None
     """
+    logger.debug('Correcting horizontal divergence u and v')
 
     # Take mean over interpolated field without ghost cells, to get target mean subsidence velocity.
-    w_target = wls[:, npad:-npad, npad:-npad].mean(axis=(1,2))
+    w_target = wls[:, n_pad:-n_pad, n_pad:-n_pad].mean(axis=(1,2))
 
     # Calculate target horizontal divergence `rho * (du/dx + dv/dy)`.
     rho_w = rhoh * w_target
     div_uv_target = -(rho_w[1:] - rho_w[:-1]) * dzi[:]
 
     # Calculate actual divergence from interpolated `u,v` fields.
-    div_u = rho * (u[:, npad:-npad, -npad].mean(axis=1) - u[:, npad:-npad,  npad].mean(axis=1)) / xsize
-    div_v = rho * (v[:, -npad, npad:-npad].mean(axis=1) - v[:, npad,  npad:-npad].mean(axis=1)) / ysize
+    div_u = rho * (u[:, n_pad:-n_pad, -n_pad].mean(axis=1) - u[:, n_pad:-n_pad,  n_pad].mean(axis=1)) / xsize
+    div_v = rho * (v[:, -n_pad, n_pad:-n_pad].mean(axis=1) - v[:, n_pad,  n_pad:-n_pad].mean(axis=1)) / ysize
     div_uv_actual = div_u + div_v
 
     # Required change in horizontal divergence.
@@ -158,3 +160,103 @@ def correct_div_uv(
     # Correct velocities in-place.
     u[:,:,:] += du_dx[:,None,None] * xp[None,None,:]
     v[:,:,:] += dv_dy[:,None,None] * yp[None,:,None]
+
+
+@jit(nopython=True, nogil=True, fastmath=True)
+def calc_w_from_uv(
+        w,
+        u,
+        v,
+        rho,
+        rhoh,
+        dz,
+        dxi,
+        dyi,
+        istart, iend,
+        jstart, jend,
+        ktot):
+    """
+    Calculate vertical velocity `w` from horizontal wind components `u` and `v` and the
+    continuity equation, with w==0 at a lower boundary condition.
+
+    Arguments:
+    ---------
+    w : np.ndarray, shape (3,)
+        Vertical velocity field.
+    u : np.ndarray, shape (3,)
+        Zonal wind field.
+    v : np.ndarray, shape (3,)
+        Meridional wind field.
+    rho : np.ndarray, shape (1,)
+        Basestate air density at full levels.
+    rhoh : np.ndarray, shape (1,)
+        Basestate air density at half levels.
+    dz : np.ndarray, shape (1,)
+        Vertical grid spacing between full levels.
+    dxi : float
+        Inverse horizontal grid spacing in x-direction.
+    dyi : float
+        Inverse horizontal grid spacing in y-direction.
+    istart : int
+        Start index in x-direction.
+    iend : int
+        End index in x-direction.
+    jstart : int
+        Start index in y-direction.
+    jend : int
+        End index in y-direction.
+    ktot : int
+        Number of full vertical levels.
+
+    Returns:
+    -------
+    None
+    """
+
+    for j in range(jstart, jend):
+        for i in range(istart, iend):
+            w[0,j,i] = 0.
+
+    for k in range(ktot):
+        for j in range(jstart, jend):
+            for i in range(istart, iend):
+                w[k+1,j,i] = -(rho[k] * ((u[k,j,i+1] - u[k,j,i]) * dxi + \
+                                         (v[k,j+1,i] - v[k,j,i]) * dyi) * dz[k] - \
+                                         rhoh[k] * w[k,j,i]) / rhoh[k+1]
+
+
+@jit(nopython=True, nogil=True, fastmath=True)
+def check_divergence(
+        u,
+        v,
+        w,
+        rho,
+        rhoh,
+        dxi,
+        dyi,
+        dzi,
+        istart, iend,
+        jstart, jend,
+        ktot):
+    """
+    Calculate maximum divergence in LES domain.
+    """
+    div_max = 0.
+    i_max = 0
+    j_max = 0
+    k_max = 0
+
+    for k in range(ktot):
+        for j in range(jstart, jend):
+            for i in range(istart, iend):
+                div = rho[k] * (u[k,j,i+1] - u[k,j,i]) * dxi + \
+                      rho[k] * (v[k,j+1,i] - v[k,j,i]) * dyi + \
+                      ((rhoh[k+1] * w[k+1,j,i]) - (rhoh[k] * w[k,j,i])) * dzi[k]
+
+                if abs(div) > div_max:
+                    div_max = abs(div)
+                    i_max = i
+                    j_max = j
+                    k_max = k
+
+    return div_max, i_max, j_max, k_max

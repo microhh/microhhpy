@@ -30,7 +30,8 @@ from microhhpy.logger import logger
 from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation_factors
 from microhhpy.interpolate.interpolate_kernels import interpolate_rect_to_curv
 
-from .help_functions import strip_mask, gaussian_filter_wrapper, blend_w_to_zero_at_sfc, correct_div_uv
+from .help_functions import strip_mask, gaussian_filter_wrapper, blend_w_to_zero_at_sfc
+from .help_functions import correct_div_uv, calc_w_from_uv, check_divergence
 
 
 def create_initial_fields_from_era5(
@@ -40,6 +41,7 @@ def create_initial_fields_from_era5(
         z_era,
         z,
         zh,
+        dz,
         dzi,
         rho,
         rhoh,
@@ -49,6 +51,54 @@ def create_initial_fields_from_era5(
         name_suffix='',
         output_dir='.',
         dtype=np.float64):
+    """
+    Generate initial LES fields by interpolating ERA5 data onto the LES grid.
+
+    If requested, it also corrects the horizontal divergence of the wind fields,
+    to ensure that the domain mean vertical velocity in LES matches the
+    subsidence velocity of ERA5, while still being divergence free at the grid point level.
+
+    The generated 3D fields are saved in binary format without ghost cells to `output_dir`.
+
+    Arguments:
+    ---------
+    fields_era : dict of np.ndarray
+        Dictionary with ERA5 fields.
+    lon_era : np.ndarray, shape (2,)
+        Longitudes of ERA5 grid points.
+    lat_era : np.ndarray, shape (2,)
+        Latitudes of ERA5 grid points.
+    z_era : np.ndarray, shape (3,)
+        Heights of ERA5 full levels.
+    z : np.ndarray, shape (1,)
+        LES full-level heights.
+    zh : np.ndarray, shape (1,)
+        LES half-level heights.
+    dz : np.ndarray, shape (1,)
+        LES vertical grid spacing.
+    dzi : np.ndarray, shape (1,)
+        Inverse of `dz`.
+    rho : np.ndarray, shape (1,)
+        Basestate air density at LES full levels.
+    rhoh : np.ndarray, shape (1,)
+        Basestate air density at LES half levels.
+    domain : Domain instance
+        microhhpy.domain.Domain instance, needed for spatial transforms.
+    correct_div_h : bool
+        If True, apply horizontal divergence correction to match target subsidence.
+    sigma_h : float
+        Width of Gaussian filter for smoothing the interpolated fields (in horizontal distance units).
+    name_suffix : str, optional
+        String to append to output filenames.
+    output_dir : str, optional
+        Directory to write the output files.
+    dtype : numpy float type, optional
+        Data type for output arrays. Defaults to `np.float64`.
+
+    Returns:
+    -------
+    None
+    """
 
     """
     Inline/lambda help functions.
@@ -102,8 +152,31 @@ def create_initial_fields_from_era5(
         if sigma_n > 0:
             gaussian_filter_wrapper(fld_les, sigma_n)
 
+        
+    def check_div():
+        """
+        Check divergence, before and after divergence correction.
+        """
+        div_max, i, j, k = check_divergence(
+            u,
+            v,
+            w,
+            rho,
+            rhoh, 
+            domain.dxi,
+            domain.dyi,
+            dzi,
+            domain.istart_pad,
+            domain.iend_pad,
+            domain.jstart_pad,
+            domain.jend_pad,
+            z.size)
+
+        logger.debug(f'Maximum divergence in LES domain: {div_max:.3e} at i={i}, j={j}, k={k}')
+
+
     proj_pad = domain.proj_pad
-    n_pad = domain.n_ghost + 1
+    n_pad = domain.n_pad
 
     # Strip masked arrays.
     lon_era = strip_mask(lon_era)
@@ -142,7 +215,6 @@ def create_initial_fields_from_era5(
     """
     if correct_div_h:
 
-
         if not all(fld in fields_era for fld in ['u', 'v', 'w']):
             logger.critical('Requested divergence correction, but u, v, or w missing!')
 
@@ -156,11 +228,12 @@ def create_initial_fields_from_era5(
 
         # Interpolated ERA5 `w_ls` sometimes has strange profiles near surface.
         # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
-        logger.debug('Blending w to zero at the surface.')
+        logger.debug(f'Blending w to zero at the surface.')
         blend_w_to_zero_at_sfc(w, zh, zmax=500)
 
+        check_div()
+
         # Correct horizontal divergence of u and v.
-        logger.debug('Correcting horizontal divergence of u and v from ERA5')
         correct_div_uv(
             u,
             v,
@@ -173,6 +246,27 @@ def create_initial_fields_from_era5(
             proj_pad.xsize,
             proj_pad.ysize,
             n_pad)
+
+        # NOTE: correcting the horizontal divergence only ensures that the _mean_ vertical velocity
+        # is correct. We still need to calculate a new vertical velocity to ensure that the wind
+        # fields are divergence free at a grid point level.
+        logger.debug(f'Calculating new vertical velocity to create divergence free wind fields.')
+        calc_w_from_uv(
+            w,
+            u,
+            v,
+            rho,
+            rhoh,
+            dz,
+            domain.dxi,
+            domain.dyi,
+            domain.istart_pad,
+            domain.iend_pad,
+            domain.jstart_pad,
+            domain.jend_pad,
+            z.size)
+
+        check_div()
 
         save_field(u, 'u')
         save_field(v, 'v')
