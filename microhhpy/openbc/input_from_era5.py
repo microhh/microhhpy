@@ -24,56 +24,13 @@
 
 # Third-party.
 import numpy as np
-from numba import jit
-from scipy.ndimage import gaussian_filter
-
-# TMP
-import matplotlib.pyplot as plt
 
 # Local library
 from microhhpy.logger import logger
 from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation_factors
 from microhhpy.interpolate.interpolate_kernels import interpolate_rect_to_curv
 
-
-def _strip_mask(array):
-    """
-    Remote mask from Numpy array if present. Numba does not like masked arrays...
-    """
-    if isinstance(array, np.ma.MaskedArray):
-        return array.data
-    else:
-        return array
-
-
-def _gaussian_filter(fld, sigma):
-    """
-    Wrapper around Scipy's `gaussian_filter`. Older version don't support the axis keyword,
-    so manually loop over height. This does not influence performance.
-    """
-    for k in range(fld.shape[0]):
-        fld[k,:,:] = gaussian_filter(fld[k,:,:], sigma, mode='nearest')
-
-
-@jit(nopython=True, nogil=True, fastmath=True)
-def _blend_w_kernel(w, z, zmax):
-    """
-    Blend `w` towards zero at the surface, from a height `zmax` down.
-    """
-    kmax = np.argmin(np.abs(z - zmax))
-    zmax = z[kmax]
-
-    _, jtot, itot = w.shape
-
-    for j in range(jtot):
-        for i in range(itot):
-            dwdz = w[kmax,j,i] / zmax
-
-            for k in range(kmax):
-                f = z[k] / zmax
-                w[k,j,i] = f * w[k,j,i] + (1-f) * dwdz * z[k]
-
-
+from .help_functions import strip_mask, gaussian_filter_wrapper, blend_w_to_zero_at_sfc, correct_div_uv
 
 
 def create_initial_fields_from_era5(
@@ -81,10 +38,11 @@ def create_initial_fields_from_era5(
         lon_era,
         lat_era,
         z_era,
-        z_les,
-        zh_les,
-        rho_les,
-        rhoh_les,
+        z,
+        zh,
+        dzi,
+        rho,
+        rhoh,
         domain,
         correct_div_h,
         sigma_h,
@@ -126,7 +84,7 @@ def create_initial_fields_from_era5(
         logger.debug(f'Interpolating initial field {name} from ERA to LES')
 
         if_loc = get_interpolation_factors(name)
-        z_loc = zh_les if name == 'w' else z_les
+        z_loc = zh if name == 'w' else z
 
         # Tri-linear interpolation from ERA5 to LES grid.
         interpolate_rect_to_curv(
@@ -142,15 +100,14 @@ def create_initial_fields_from_era5(
 
         # Apply Gaussian filter.
         if sigma_n > 0:
-            _gaussian_filter(fld_les, sigma_n)
-
+            gaussian_filter_wrapper(fld_les, sigma_n)
 
     proj_pad = domain.proj_pad
     n_pad = domain.n_ghost + 1
 
     # Strip masked arrays.
-    lon_era = _strip_mask(lon_era)
-    lat_era = _strip_mask(lat_era)
+    lon_era = strip_mask(lon_era)
+    lat_era = strip_mask(lat_era)
 
     # Calculate horizontal interpolation factors at all staggered grid locations.
     # Horizonal only, so `w` factors equal to scalar factors.
@@ -165,8 +122,8 @@ def create_initial_fields_from_era5(
 
     # LES field with ghost cells. Needed to make momentum fields divergence free,
     # as this requires one ghost cell in the north- and east-most grid points.
-    dims_full = (z_les.size,   proj_pad.jtot, proj_pad.itot)
-    dims_half = (z_les.size+1, proj_pad.jtot, proj_pad.itot)
+    dims_full = (z.size,  proj_pad.jtot, proj_pad.itot)
+    dims_half = (zh.size, proj_pad.jtot, proj_pad.itot)
 
     fld_full = np.empty(dims_full, dtype=dtype)
     fld_half = np.empty(dims_half, dtype=dtype)
@@ -185,23 +142,41 @@ def create_initial_fields_from_era5(
     """
     if correct_div_h:
 
+
         if not all(fld in fields_era for fld in ['u', 'v', 'w']):
             logger.critical('Requested divergence correction, but u, v, or w missing!')
 
-        u_les = np.empty(dims_full, dtype=dtype)
-        v_les = np.empty(dims_full, dtype=dtype)
-        w_les = np.empty(dims_half, dtype=dtype)
+        u = np.empty(dims_full, dtype=dtype)
+        v = np.empty(dims_full, dtype=dtype)
+        w = np.empty(dims_half, dtype=dtype)
 
-        interpolate(u_les, 'u')
-        interpolate(v_les, 'v')
-        interpolate(w_les, 'w')
+        interpolate(u, 'u')
+        interpolate(v, 'v')
+        interpolate(w, 'w')
 
         # Interpolated ERA5 `w_ls` sometimes has strange profiles near surface.
         # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
-        _blend_w_kernel(w_les, z_les, zmax=500)
+        logger.debug('Blending w to zero at the surface.')
+        blend_w_to_zero_at_sfc(w, zh, zmax=500)
 
-        return u_les, v_les, w_les
+        # Correct horizontal divergence of u and v.
+        logger.debug('Correcting horizontal divergence of u and v from ERA5')
+        correct_div_uv(
+            u,
+            v,
+            w,
+            rho,
+            rhoh,
+            dzi,
+            proj_pad.x,
+            proj_pad.y,
+            proj_pad.xsize,
+            proj_pad.ysize,
+            n_pad)
 
+        save_field(u, 'u')
+        save_field(v, 'v')
+        save_field(w, 'w')
 
 
     """
