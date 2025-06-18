@@ -32,14 +32,13 @@ from microhhpy.logger import logger
 
 def create_lbc_ds(
         fields,
+        time,
         x,
         y,
         z,
         xh,
         yh,
         zh,
-        time,
-        start_date,
         n_ghost,
         n_sponge,
         x_offset=0,
@@ -64,10 +63,8 @@ def create_lbc_ds(
         y-coordinates on half levels.
     zh : np.ndarray
         z-coordinates on half levels.
-    time : np.ndarray
-        Time values (seconds since start).
-    start_date : datetime.datetime
-        Start date of the simulation.
+    n_time : int
+        Number of time steps.
     n_ghost : int
         Number of ghost cells.
     n_sponge : int
@@ -85,7 +82,6 @@ def create_lbc_ds(
         Dataset with initialized boundary fields and coordinates for MicroHH LBC input.
     """
 
-    nt = time.size
     itot = x.size
     jtot = y.size
     ktot = z.size
@@ -94,7 +90,7 @@ def create_lbc_ds(
 
     # Dimension sizes.
     dims = {
-        'time': nt,
+        'time': time.size,
         'x': itot + 2*n_ghost,
         'xh': itot + 2*n_ghost,
         'xgw': nlbc,
@@ -202,6 +198,59 @@ def create_lbc_ds(
         add_var('w_south', ('time', 'zh', 'ygs', 'x'))
         add_var('w_north', ('time', 'zh', 'ygn', 'x'))
 
-    ds.time.attrs['units'] = f'seconds since {start_date.isoformat()}'
+    ds.time.attrs['units'] = f'Seconds since start of simulation'
 
     return ds
+
+
+def setup_lbc_slices(n_ghost, n_sponge):
+    """
+    Setup dictionary with slices of lateral boundary conditions in full 3D fields.
+    The LBCs contain both the ghost and lateral sponge cells.
+    
+    Arguments:
+    ---------
+    n_ghost : int
+        Number of ghost cells.
+    n_sponge : int
+        Number of sponge cells.
+    
+    Returns:
+    -------
+    slices : dict
+        Dictionary with slices for each boundary condition.
+    """
+
+    n_lbc = n_ghost + n_sponge + 1
+
+    slices = dict(
+            s_west = np.s_[:, 1:-1, 1:n_lbc],
+            s_east = np.s_[:, 1:-1, -n_lbc:-1],
+            s_south = np.s_[:, 1:n_lbc, 1:-1],
+            s_north = np.s_[:, -n_lbc:-1, 1:-1],
+
+            u_west = np.s_[:, 1:-1, 1:n_lbc+1],
+            u_east = np.s_[:, 1:-1, -n_lbc:-1],
+            u_south = np.s_[:, 1:n_lbc, 1:-1],
+            u_north = np.s_[:, -n_lbc:-1, 1:-1],
+
+            v_west = np.s_[:, 1:-1, 1:n_lbc],
+            v_east = np.s_[:, 1:-1, -n_lbc:-1],
+            v_south = np.s_[:, 1:n_lbc+1, 1:-1],
+            v_north = np.s_[:, -n_lbc:-1, 1:-1],
+
+            w_west = np.s_[:-1, 1:-1, 1:n_lbc],
+            w_east = np.s_[:-1, 1:-1, -n_lbc:-1],
+            w_south = np.s_[:-1, 1:n_lbc, 1:-1],
+            w_north = np.s_[:-1, -n_lbc:-1, 1:-1])
+
+    return slices
+
+
+def get_lbc_slice(name, loc, n_lbc):
+
+
+    if name not in ('u', 'v', 'w'):
+        return slices[f's_{loc}']
+    else:
+        return slices[f'{name}_{loc}']

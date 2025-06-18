@@ -29,9 +29,11 @@ import numpy as np
 from microhhpy.logger import logger
 from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation_factors
 from microhhpy.interpolate.interpolate_kernels import interpolate_rect_to_curv
+from microhhpy.spatial import Vertical_grid_2nd
 
 from .global_help_functions import gaussian_filter_wrapper, blend_w_to_zero_at_sfc
 from .global_help_functions import correct_div_uv, calc_w_from_uv, check_divergence
+from .lbc_help_functions import create_lbc_ds, setup_lbc_slices
 
 
 def setup_interpolations(
@@ -50,9 +52,14 @@ def setup_interpolations(
     lat_era : np.ndarray, shape (2,)
         Latitudes of ERA5 grid points.
     proj_pad : microhhpy.spatial.Projection instance
-        Projection including ghost cells.
+        Spatial projection.
     dtype : numpy float type, optional
-        Data type for output arrays. Defaults to `np.float64`.
+        Data type output arrays.
+
+    Returns:
+    -------
+    dict
+        Dictionary with `Rect_to_curv_interpolation_factors` instances.
     """
 
     if_u = Rect_to_curv_interpolation_factors(
@@ -80,9 +87,13 @@ def get_interpolation_factors(
     Arguments:
     ---------
     factors : dict
-        Dictionary with interpolation factors
+        Dictionary with `Rect_to_curv_interpolation_factors` instances.
     name : str
         Name of field.
+
+    Returns:
+    -------
+        `Rect_to_curv_interpolation_factors` instance
     """
 
     if name == 'u':
@@ -93,438 +104,581 @@ def get_interpolation_factors(
         return factors['s']
 
 
-def process_momentum(
-        u,
-        v,
-        w,
-        rho,
-        rhoh,
-        zh,
-        dz,
-        dzi,
-        domain,
-        n_pad
-        ):
+def save_3d_field(
+        fld,
+        name,
+        name_suffix,
+        n_pad,
+        output_dir):
     """
-    Process interpolated momentum fields:
-    1. Blend w to zero to surface over a certain (500 m) depth.
-    2. Correct horizontal divergence of u and v to match subsidence in LES to ERA5.
-    3. Calculate new vertical velocity w to ensure that the fields are divergence free.
-    4. Check resulting divergence.
-
-    Arguments:
-    ---------
-    u : np.ndarray, shape (3,)
-        Zonal wind field.
-    v : np.ndarray, shape (3,)
-        Meridional wind field
-    w : np.ndarray, shape (1,)
-        Vertical wind field.
-    rho : np.ndarray, shape (1,)
-        Basestate air density at LES full levels.
-    rhoh : np.ndarray, shape (1,)
-        Basestate air density at LES half levels.
-    zh : np.ndarray, shape (1,)
-        LES half-level heights.
-    dz : np.ndarray, shape (1,)
-        Vertical grid spacing full levels.
-    dzi : np.ndarray, shape (1,)
-        Inverse of `dz`.
-    domain : Domain instance
-        microhhpy.domain.Domain instance, needed for spatial transforms.
-    n_pad : int
-        Number of ghost cells including padding.
-
-    Returns:
-        None
+    Save 3D field without ghost cells to file.
     """
-    proj_pad = domain.proj_pad
+    if name_suffix == '':
+        f_out = f'{output_dir}/{name}.0000000'
+    else:
+        f_out = f'{output_dir}/{name}_{name_suffix}.0000000'
+
+    fld[:, n_pad:-n_pad, n_pad:-n_pad].tofile(f_out)
+
+
+def parse_scalar(
+    lbc_ds,
+    name,
+    name_suffix,
+    t,
+    fld_era,
+    z_era,
+    z_les,
+    ip_fac,
+    lbc_slices,
+    sigma_n,
+    domain,
+    output_dir,
+    dtype):
+
+    logger.debug(f'Processing field {name} at t={t}.')
+
+    # Keep creation of 3D field here, for parallel/async exectution..
+    fld_les = np.empty((z_les.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+
+    # Tri-linear interpolation from ERA5 to LES grid.
+    interpolate_rect_to_curv(
+        fld_les,
+        fld_era,
+        ip_fac.il,
+        ip_fac.jl,
+        ip_fac.fx,
+        ip_fac.fy,
+        z_les,
+        z_era,
+        dtype)
     
-    # Interpolated ERA5 `w_ls` sometimes has strange profiles near surface.
-    # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
-    logger.debug(f'Blending w to zero at the surface.')
-    blend_w_to_zero_at_sfc(w, zh, zmax=500)
+    # Apply Gaussian filter.
+    if sigma_n > 0:
+        gaussian_filter_wrapper(fld_les, sigma_n)
+    
+    # Save 3D field without ghost cells in binary format as initial/restart file.
+    if t == 0:
+        save_3d_field(fld_les, name, name_suffix, domain.n_pad, output_dir)
 
-    # Correct horizontal divergence of u and v.
-    correct_div_uv(
-        u,
-        v,
-        w,
-        rho,
-        rhoh,
-        dzi,
-        proj_pad.x,
-        proj_pad.y,
-        proj_pad.xsize,
-        proj_pad.ysize,
-        n_pad)
-
-    # NOTE: correcting the horizontal divergence only ensures that the _mean_ vertical velocity
-    # is correct. We still need to calculate a new vertical velocity to ensure that the wind
-    # fields are divergence free at a grid point level.
-    logger.debug(f'Calculating new vertical velocity to create divergence free wind fields.')
-    calc_w_from_uv(
-        w,
-        u,
-        v,
-        rho,
-        rhoh,
-        dz,
-        domain.dxi,
-        domain.dyi,
-        domain.istart_pad,
-        domain.iend_pad,
-        domain.jstart_pad,
-        domain.jend_pad,
-        dz.size)
-
-    # Check! 
-    div_max, i, j, k = check_divergence(
-        u,
-        v,
-        w,
-        rho,
-        rhoh, 
-        domain.dxi,
-        domain.dyi,
-        dzi,
-        domain.istart_pad,
-        domain.iend_pad,
-        domain.jstart_pad,
-        domain.jend_pad,
-        dz.size)
-    logger.debug(f'Maximum divergence in LES domain: {div_max:.3e} at i={i}, j={j}, k={k}')
+    # Save lateral boundaries.
+    for loc in ('west', 'east', 'south', 'north'):
+        lbc_slice = lbc_slices[f's_{loc}']
+        lbc_ds[f'{name}_{loc}'][t,:,:,:] = fld_les[lbc_slice]
 
 
-def create_fields_from_era5(
+def create_era5_input(
         fields_era,
         lon_era,
         lat_era,
         z_era,
+        time_era,
         z,
-        zh,
-        dz,
-        dzi,
+        zsize,
         rho,
         rhoh,
         domain,
-        correct_div_h,
         sigma_h,
         name_suffix='',
         output_dir='.',
         dtype=np.float64):
     """
-    Generate initial LES fields by interpolating ERA5 data onto the LES grid.
-
-    If requested, it also corrects the horizontal divergence of the wind fields,
-    to ensure that the domain mean vertical velocity in LES matches the
-    subsidence velocity of ERA5, while still being divergence free at the grid point level.
-
-    The generated 3D fields are saved in binary format without ghost cells to `output_dir`.
-
-    Arguments:
-    ---------
-    fields_era : dict of np.ndarray
-        Dictionary with ERA5 fields.
-    lon_era : np.ndarray, shape (2,)
-        Longitudes of ERA5 grid points.
-    lat_era : np.ndarray, shape (2,)
-        Latitudes of ERA5 grid points.
-    z_era : np.ndarray, shape (3,)
-        Heights of ERA5 full levels.
-    z : np.ndarray, shape (1,)
-        LES full-level heights.
-    zh : np.ndarray, shape (1,)
-        LES half-level heights.
-    dz : np.ndarray, shape (1,)
-        LES vertical grid spacing.
-    dzi : np.ndarray, shape (1,)
-        Inverse of `dz`.
-    rho : np.ndarray, shape (1,)
-        Basestate air density at LES full levels.
-    rhoh : np.ndarray, shape (1,)
-        Basestate air density at LES half levels.
-    domain : Domain instance
-        microhhpy.domain.Domain instance, needed for spatial transforms.
-    correct_div_h : bool
-        If True, apply horizontal divergence correction to match target subsidence.
-    sigma_h : float
-        Width of Gaussian filter for smoothing the interpolated fields (in horizontal distance units).
-    name_suffix : str, optional
-        String to append to output filenames.
-    output_dir : str, optional
-        Directory to write the output files.
-    dtype : numpy float type, optional
-        Data type for output arrays. Defaults to `np.float64`.
-
-    Returns:
-    -------
-    None
-    """
-
-    """
-    Inline/lambda help functions.
-    """
-    def save_field(fld, name):
-        """
-        Save 3D field without ghost cells to file.
-        """
-        if name_suffix == '':
-            f_out = f'{output_dir}/{name}.0000000'
-        else:
-            f_out = f'{output_dir}/{name}_{name_suffix}.0000000'
-
-        fld[s_int].tofile(f_out)
-
-
-    def interpolate(fld_les, name):
-        """
-        Tri-linear interpolation of ERA5 to LES grid,
-        """
-        logger.debug(f'Interpolating initial field {name} from ERA to LES')
-
-        if_loc = get_interpolation_factors(ip_facs, name)
-        z_loc = zh if name == 'w' else z
-
-        # Tri-linear interpolation from ERA5 to LES grid.
-        interpolate_rect_to_curv(
-            fld_les,
-            fields_era[name],
-            if_loc.il,
-            if_loc.jl,
-            if_loc.fx,
-            if_loc.fy,
-            z_loc,
-            z_era,
-            dtype)
-
-        # Apply Gaussian filter.
-        if sigma_n > 0:
-            gaussian_filter_wrapper(fld_les, sigma_n)
-
-        
-    proj_pad = domain.proj_pad
-    n_pad = domain.n_pad
-
-    """
-    Setup interpolation factors.
-    """
-    ip_facs = setup_interpolations(lon_era, lat_era, proj_pad, dtype)
-
-    """
-    Define fields with ghost cells, needed to make u,v,w, divergence free.
-    """
-    dims_full = (z.size,  proj_pad.jtot, proj_pad.itot)
-    dims_half = (zh.size, proj_pad.jtot, proj_pad.itot)
-
-    fld_full = np.empty(dims_full, dtype=dtype)
-    fld_half = np.empty(dims_half, dtype=dtype)
-
-    # Numpy slice with interior of domain.
-    s_int = np.s_[:, n_pad:-n_pad, n_pad:-n_pad]
-
+    Generate all required MicroHH input from ERA5.
     
+    1. Initial fields.
+    2. Lateral boundary conditions.
+    3. ...
     """
-    Setup spatial filtering.
-    """
-    sigma_n = int(np.ceil(sigma_h / (6 * proj_pad.dx)))
+
+    # Short-cuts.
+    proj_pad = domain.proj_pad
+
+    # Setup vertical grid. Definition has to perfectly match MicroHH's vertical grid to get divergence free fields.
+    vgrid = Vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=dtype)
+
+    # Setup horizontal interpolations (indexes and factors).
+    ip_facs = setup_interpolations(lon_era, lat_era, proj_pad, dtype=dtype)
+
+    # Setup spatial filtering.
+    sigma_n = int(np.ceil(sigma_h / proj_pad.dx))
     if sigma_n > 0:
         logger.debug(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
 
-
-    """
-    Parse the momentum fields separately if divergence correction is requested.
-    """
-    if correct_div_h:
-
-        if not all(fld in fields_era for fld in ['u', 'v', 'w']):
-            logger.critical('Requested divergence correction, but u, v, or w missing!')
-
-        u = np.empty(dims_full, dtype=dtype)
-        v = np.empty(dims_full, dtype=dtype)
-        w = np.empty(dims_half, dtype=dtype)
-
-        interpolate(u, 'u')
-        interpolate(v, 'v')
-        interpolate(w, 'w')
-
-        process_momentum(
-            u,
-            v,
-            w,
-            rho,
-            rhoh,
-            zh,
-            dz,
-            dzi,
-            domain,
-            n_pad)
-
-        save_field(u, 'u')
-        save_field(v, 'v')
-        save_field(w, 'w')
-
-
-    """
-    Parse remaining fields.
-    """
-    exclude_fields = ('u', 'v', 'w') if correct_div_h else ()
-
-    for name, fld_era in fields_era.items():
-        if name not in exclude_fields:
-
-            fld = fld_half if name == 'w' else fld_full
-            
-            # Tri-linear interpolation from ERA5 to LES grid.
-            interpolate(fld, name)
-
-            # Save 3D field without ghost cells in binary format.
-            save_field(fld, name)
-
-
-def create_lbcs_from_era5(
-        fields_era,
-        lon_era,
-        lat_era,
-        z_era,
-        time,
-        start_date,
-        z,
-        zh,
-        dz,
-        dzi,
-        rho,
-        rhoh,
-        domain,
-        n_sponge,
-        correct_div_h,
-        sigma_h,
-        output_dir='.',
-        dtype=np.float64):
-    """
-    Docstring TODO
-    """
-
-    """
-    Inline/lambda help functions.
-    """
-    def get_interpolation_factors(name):
-        """
-        Get interpolation factors for a given field name.
-        """
-        if name == 'u':
-            return if_u
-        elif name == 'v':
-            return if_v
-        else:
-            return if_s
-
-
-    def interpolate(fld_les, name):
-        """
-        Tri-linear interpolation of ERA5 to LES grid,
-        """
-        logger.debug(f'Interpolating field {name} from ERA to LES')
-
-        if_loc = get_interpolation_factors(name)
-        z_loc = zh if name == 'w' else z
-
-        # Tri-linear interpolation from ERA5 to LES grid.
-        interpolate_rect_to_curv(
-            fld_les,
-            fields_era[name],
-            if_loc.il,
-            if_loc.jl,
-            if_loc.fx,
-            if_loc.fy,
-            z_loc,
-            z_era,
-            dtype)
-
-        # Apply Gaussian filter.
-        if sigma_n > 0:
-            gaussian_filter_wrapper(fld_les, sigma_n)
-
-
-    n_pad = domain.n_pad
-    proj_pad = domain.proj_pad
-
-
-    """
-    Setup Xarray dataset with correction dimensions/coordinates of lateratal boundary conditions.
-    """
+    # Setup lateral boundary fields.
     lbc_ds = create_lbc_ds(
         list(fields_era.keys()),
+        time_era,
         domain.x,
         domain.y,
-        z,
+        vgrid.z,
         domain.xh,
         domain.yh,
-        zh,
-        time,
-        start_date,
+        vgrid.zh,
         domain.n_ghost,
-        n_sponge,
+        domain.n_sponge,
         dtype=dtype)
 
+    # Numpy slices of lateral boundary conditions.
+    lbc_slices = setup_lbc_slices(domain.n_ghost, domain.n_sponge)
 
-    """
-    Numpy slices of all boundary fields.
-    """
-    slices = dict(
-            ss_west = np.s_[:, 1:-1, 1:n_pad],
-            ss_east = np.s_[:, 1:-1, -n_pad:-1],
-            ss_south = np.s_[:, 1:n_pad, 1:-1],
-            ss_north = np.s_[:, -n_pad:-1, 1:-1],
+    # Parse all field (well, without momentum...) and time steps.
+    # This creates the initial fields for t==0, and lateral boundary conditions for all time steps.
+    ip_fac = get_interpolation_factors(ip_facs, 's')
 
-            su_west = np.s_[:, 1:-1, 1:n_pad+1],
-            su_east = np.s_[:, 1:-1, -n_pad:-1],
-            su_south = np.s_[:, 1:n_pad, 1:-1],
-            su_north = np.s_[:, -n_pad:-1, 1:-1],
-
-            sv_west = np.s_[:, 1:-1, 1:n_pad],
-            sv_east = np.s_[:, 1:-1, -n_pad:-1],
-            sv_south = np.s_[:, 1:n_pad+1, 1:-1],
-            sv_north = np.s_[:, -n_pad:-1, 1:-1],
-
-            sw_west = np.s_[:-1, 1:-1, 1:n_pad],
-            sw_east = np.s_[:-1, 1:-1, -n_pad:-1],
-            sw_south = np.s_[:-1, 1:n_pad, 1:-1],
-            sw_north = np.s_[:-1, -n_pad:-1, 1:-1])
-
-
-    """
-    Calculate horizontal interpolation factors at all staggered grid locations.
-    Horizonal only, so `w` factors equal to scalar factors.
-    """
-    if_u = Rect_to_curv_interpolation_factors(
-        lon_era, lat_era, proj_pad.lon_u, proj_pad.lat_u, dtype)
-
-    if_v = Rect_to_curv_interpolation_factors(
-        lon_era, lat_era, proj_pad.lon_v, proj_pad.lat_v, dtype)
-
-    if_s = Rect_to_curv_interpolation_factors(
-        lon_era, lat_era, proj_pad.lon, proj_pad.lat, dtype)
-
-    
-    """
-    Fields are interpolated over full 3D fields, not just the boundaries.
-    This is a bit wasteful, but a lot easier with the spatial filtering and all.
-    """
-    dims_full = (z.size,  proj_pad.jtot, proj_pad.itot)
-    dims_half = (zh.size, proj_pad.jtot, proj_pad.itot)
-
-    fld_full = np.empty(dims_full, dtype=dtype)
-    fld_half = np.empty(dims_half, dtype=dtype)
-
-    # Filter size from meters to `n` grid cells.
-    sigma_n = int(np.ceil(sigma_h / (6 * proj_pad.dx)))
-    if sigma_n > 0:
-        logger.debug(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
+    for name, fld_era in fields_era.items():
+        if name not in ('u', 'v', 'w'):
+            for t in range(time_era.size):
+                parse_scalar(
+                    lbc_ds,
+                    name,
+                    name_suffix,
+                    t,
+                    fld_era[t,:,:,:],
+                    z_era[t,:,:,:],
+                    vgrid.z,
+                    ip_fac,
+                    lbc_slices,
+                    sigma_n,
+                    domain,
+                    output_dir,
+                    dtype)
 
 
-    """
-    Process all time steps.
-    """
-    for t in range(time.size):
-        logger.debug(f'Processing time step {t+1}/{time.size}')
+
+
+
+#def process_momentum(
+#        u,
+#        v,
+#        w,
+#        rho,
+#        rhoh,
+#        zh,
+#        dz,
+#        dzi,
+#        domain,
+#        n_pad
+#        ):
+#    """
+#    Process interpolated momentum fields:
+#    1. Blend w to zero to surface over a certain (500 m) depth.
+#    2. Correct horizontal divergence of u and v to match subsidence in LES to ERA5.
+#    3. Calculate new vertical velocity w to ensure that the fields are divergence free.
+#    4. Check resulting divergence.
+#
+#    Arguments:
+#    ---------
+#    u : np.ndarray, shape (3,)
+#        Zonal wind field.
+#    v : np.ndarray, shape (3,)
+#        Meridional wind field
+#    w : np.ndarray, shape (1,)
+#        Vertical wind field.
+#    rho : np.ndarray, shape (1,)
+#        Basestate air density at LES full levels.
+#    rhoh : np.ndarray, shape (1,)
+#        Basestate air density at LES half levels.
+#    zh : np.ndarray, shape (1,)
+#        LES half-level heights.
+#    dz : np.ndarray, shape (1,)
+#        Vertical grid spacing full levels.
+#    dzi : np.ndarray, shape (1,)
+#        Inverse of `dz`.
+#    domain : Domain instance
+#        microhhpy.domain.Domain instance, needed for spatial transforms.
+#    n_pad : int
+#        Number of ghost cells including padding.
+#
+#    Returns:
+#        None
+#    """
+#    proj_pad = domain.proj_pad
+#    
+#    # Interpolated ERA5 `w_ls` sometimes has strange profiles near surface.
+#    # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
+#    logger.debug(f'Blending w to zero at the surface.')
+#    blend_w_to_zero_at_sfc(w, zh, zmax=500)
+#
+#    # Correct horizontal divergence of u and v.
+#    correct_div_uv(
+#        u,
+#        v,
+#        w,
+#        rho,
+#        rhoh,
+#        dzi,
+#        proj_pad.x,
+#        proj_pad.y,
+#        proj_pad.xsize,
+#        proj_pad.ysize,
+#        n_pad)
+#
+#    # NOTE: correcting the horizontal divergence only ensures that the _mean_ vertical velocity
+#    # is correct. We still need to calculate a new vertical velocity to ensure that the wind
+#    # fields are divergence free at a grid point level.
+#    logger.debug(f'Calculating new vertical velocity to create divergence free wind fields.')
+#    calc_w_from_uv(
+#        w,
+#        u,
+#        v,
+#        rho,
+#        rhoh,
+#        dz,
+#        domain.dxi,
+#        domain.dyi,
+#        domain.istart_pad,
+#        domain.iend_pad,
+#        domain.jstart_pad,
+#        domain.jend_pad,
+#        dz.size)
+#
+#    # Check! 
+#    div_max, i, j, k = check_divergence(
+#        u,
+#        v,
+#        w,
+#        rho,
+#        rhoh, 
+#        domain.dxi,
+#        domain.dyi,
+#        dzi,
+#        domain.istart_pad,
+#        domain.iend_pad,
+#        domain.jstart_pad,
+#        domain.jend_pad,
+#        dz.size)
+#    logger.debug(f'Maximum divergence in LES domain: {div_max:.3e} at i={i}, j={j}, k={k}')
+#
+#
+#def create_fields_from_era5(
+#        fields_era,
+#        lon_era,
+#        lat_era,
+#        z_era,
+#        z,
+#        zh,
+#        dz,
+#        dzi,
+#        rho,
+#        rhoh,
+#        domain,
+#        correct_div_h,
+#        sigma_h,
+#        name_suffix='',
+#        output_dir='.',
+#        dtype=np.float64):
+#    """
+#    Generate initial LES fields by interpolating ERA5 data onto the LES grid.
+#
+#    If requested, it also corrects the horizontal divergence of the wind fields,
+#    to ensure that the domain mean vertical velocity in LES matches the
+#    subsidence velocity of ERA5, while still being divergence free at the grid point level.
+#
+#    The generated 3D fields are saved in binary format without ghost cells to `output_dir`.
+#
+#    Arguments:
+#    ---------
+#    fields_era : dict of np.ndarray
+#        Dictionary with ERA5 fields.
+#    lon_era : np.ndarray, shape (2,)
+#        Longitudes of ERA5 grid points.
+#    lat_era : np.ndarray, shape (2,)
+#        Latitudes of ERA5 grid points.
+#    z_era : np.ndarray, shape (3,)
+#        Heights of ERA5 full levels.
+#    z : np.ndarray, shape (1,)
+#        LES full-level heights.
+#    zh : np.ndarray, shape (1,)
+#        LES half-level heights.
+#    dz : np.ndarray, shape (1,)
+#        LES vertical grid spacing.
+#    dzi : np.ndarray, shape (1,)
+#        Inverse of `dz`.
+#    rho : np.ndarray, shape (1,)
+#        Basestate air density at LES full levels.
+#    rhoh : np.ndarray, shape (1,)
+#        Basestate air density at LES half levels.
+#    domain : Domain instance
+#        microhhpy.domain.Domain instance, needed for spatial transforms.
+#    correct_div_h : bool
+#        If True, apply horizontal divergence correction to match target subsidence.
+#    sigma_h : float
+#        Width of Gaussian filter for smoothing the interpolated fields (in horizontal distance units).
+#    name_suffix : str, optional
+#        String to append to output filenames.
+#    output_dir : str, optional
+#        Directory to write the output files.
+#    dtype : numpy float type, optional
+#        Data type for output arrays. Defaults to `np.float64`.
+#
+#    Returns:
+#    -------
+#    None
+#    """
+#
+#    """
+#    Inline/lambda help functions.
+#    """
+#    def save_field(fld, name):
+#        """
+#        Save 3D field without ghost cells to file.
+#        """
+#        if name_suffix == '':
+#            f_out = f'{output_dir}/{name}.0000000'
+#        else:
+#            f_out = f'{output_dir}/{name}_{name_suffix}.0000000'
+#
+#        fld[s_int].tofile(f_out)
+#
+#
+#    def interpolate(fld_les, name):
+#        """
+#        Tri-linear interpolation of ERA5 to LES grid,
+#        """
+#        logger.debug(f'Interpolating initial field {name} from ERA to LES')
+#
+#        if_loc = get_interpolation_factors(ip_facs, name)
+#        z_loc = zh if name == 'w' else z
+#
+#        # Tri-linear interpolation from ERA5 to LES grid.
+#        interpolate_rect_to_curv(
+#            fld_les,
+#            fields_era[name],
+#            if_loc.il,
+#            if_loc.jl,
+#            if_loc.fx,
+#            if_loc.fy,
+#            z_loc,
+#            z_era,
+#            dtype)
+#
+#        # Apply Gaussian filter.
+#        if sigma_n > 0:
+#            gaussian_filter_wrapper(fld_les, sigma_n)
+#
+#        
+#    proj_pad = domain.proj_pad
+#    n_pad = domain.n_pad
+#
+#    """
+#    Setup interpolation factors.
+#    """
+#    ip_facs = setup_interpolations(lon_era, lat_era, proj_pad, dtype)
+#
+#    """
+#    Define fields with ghost cells, needed to make u,v,w, divergence free.
+#    """
+#    dims_full = (z.size,  proj_pad.jtot, proj_pad.itot)
+#    dims_half = (zh.size, proj_pad.jtot, proj_pad.itot)
+#
+#    fld_full = np.empty(dims_full, dtype=dtype)
+#    fld_half = np.empty(dims_half, dtype=dtype)
+#
+#    # Numpy slice with interior of domain.
+#    s_int = np.s_[:, n_pad:-n_pad, n_pad:-n_pad]
+#
+#    
+#    """
+#    Setup spatial filtering.
+#    """
+#    sigma_n = int(np.ceil(sigma_h / (6 * proj_pad.dx)))
+#    if sigma_n > 0:
+#        logger.debug(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
+#
+#
+#    """
+#    Parse the momentum fields separately if divergence correction is requested.
+#    """
+#    if correct_div_h:
+#
+#        if not all(fld in fields_era for fld in ['u', 'v', 'w']):
+#            logger.critical('Requested divergence correction, but u, v, or w missing!')
+#
+#        u = np.empty(dims_full, dtype=dtype)
+#        v = np.empty(dims_full, dtype=dtype)
+#        w = np.empty(dims_half, dtype=dtype)
+#
+#        interpolate(u, 'u')
+#        interpolate(v, 'v')
+#        interpolate(w, 'w')
+#
+#        process_momentum(
+#            u,
+#            v,
+#            w,
+#            rho,
+#            rhoh,
+#            zh,
+#            dz,
+#            dzi,
+#            domain,
+#            n_pad)
+#
+#        save_field(u, 'u')
+#        save_field(v, 'v')
+#        save_field(w, 'w')
+#
+#
+#    """
+#    Parse remaining fields.
+#    """
+#    exclude_fields = ('u', 'v', 'w') if correct_div_h else ()
+#
+#    for name, fld_era in fields_era.items():
+#        if name not in exclude_fields:
+#
+#            fld = fld_half if name == 'w' else fld_full
+#            
+#            # Tri-linear interpolation from ERA5 to LES grid.
+#            interpolate(fld, name)
+#
+#            # Save 3D field without ghost cells in binary format.
+#            save_field(fld, name)
+#
+#
+#def create_lbcs_from_era5(
+#        fields_era,
+#        lon_era,
+#        lat_era,
+#        z_era,
+#        time,
+#        start_date,
+#        z,
+#        zh,
+#        dz,
+#        dzi,
+#        rho,
+#        rhoh,
+#        domain,
+#        n_sponge,
+#        correct_div_h,
+#        sigma_h,
+#        output_dir='.',
+#        dtype=np.float64):
+#    """
+#    Docstring TODO
+#    """
+#
+#    """
+#    Inline/lambda help functions.
+#    """
+#    def get_interpolation_factors(name):
+#        """
+#        Get interpolation factors for a given field name.
+#        """
+#        if name == 'u':
+#            return if_u
+#        elif name == 'v':
+#            return if_v
+#        else:
+#            return if_s
+#
+#
+#    def interpolate(fld_les, name):
+#        """
+#        Tri-linear interpolation of ERA5 to LES grid,
+#        """
+#        logger.debug(f'Interpolating field {name} from ERA to LES')
+#
+#        if_loc = get_interpolation_factors(name)
+#        z_loc = zh if name == 'w' else z
+#
+#        # Tri-linear interpolation from ERA5 to LES grid.
+#        interpolate_rect_to_curv(
+#            fld_les,
+#            fields_era[name],
+#            if_loc.il,
+#            if_loc.jl,
+#            if_loc.fx,
+#            if_loc.fy,
+#            z_loc,
+#            z_era,
+#            dtype)
+#
+#        # Apply Gaussian filter.
+#        if sigma_n > 0:
+#            gaussian_filter_wrapper(fld_les, sigma_n)
+#
+#
+#    n_pad = domain.n_pad
+#    proj_pad = domain.proj_pad
+#
+#
+#    """
+#    Setup Xarray dataset with correction dimensions/coordinates of lateratal boundary conditions.
+#    """
+#    lbc_ds = create_lbc_ds(
+#        list(fields_era.keys()),
+#        domain.x,
+#        domain.y,
+#        z,
+#        domain.xh,
+#        domain.yh,
+#        zh,
+#        time,
+#        start_date,
+#        domain.n_ghost,
+#        n_sponge,
+#        dtype=dtype)
+#
+#
+#    """
+#    Numpy slices of all boundary fields.
+#    """
+#    slices = dict(
+#            ss_west = np.s_[:, 1:-1, 1:n_pad],
+#            ss_east = np.s_[:, 1:-1, -n_pad:-1],
+#            ss_south = np.s_[:, 1:n_pad, 1:-1],
+#            ss_north = np.s_[:, -n_pad:-1, 1:-1],
+#
+#            su_west = np.s_[:, 1:-1, 1:n_pad+1],
+#            su_east = np.s_[:, 1:-1, -n_pad:-1],
+#            su_south = np.s_[:, 1:n_pad, 1:-1],
+#            su_north = np.s_[:, -n_pad:-1, 1:-1],
+#
+#            sv_west = np.s_[:, 1:-1, 1:n_pad],
+#            sv_east = np.s_[:, 1:-1, -n_pad:-1],
+#            sv_south = np.s_[:, 1:n_pad+1, 1:-1],
+#            sv_north = np.s_[:, -n_pad:-1, 1:-1],
+#
+#            sw_west = np.s_[:-1, 1:-1, 1:n_pad],
+#            sw_east = np.s_[:-1, 1:-1, -n_pad:-1],
+#            sw_south = np.s_[:-1, 1:n_pad, 1:-1],
+#            sw_north = np.s_[:-1, -n_pad:-1, 1:-1])
+#
+#
+#    """
+#    Calculate horizontal interpolation factors at all staggered grid locations.
+#    Horizonal only, so `w` factors equal to scalar factors.
+#    """
+#    if_u = Rect_to_curv_interpolation_factors(
+#        lon_era, lat_era, proj_pad.lon_u, proj_pad.lat_u, dtype)
+#
+#    if_v = Rect_to_curv_interpolation_factors(
+#        lon_era, lat_era, proj_pad.lon_v, proj_pad.lat_v, dtype)
+#
+#    if_s = Rect_to_curv_interpolation_factors(
+#        lon_era, lat_era, proj_pad.lon, proj_pad.lat, dtype)
+#
+#    
+#    """
+#    Fields are interpolated over full 3D fields, not just the boundaries.
+#    This is a bit wasteful, but a lot easier with the spatial filtering and all.
+#    """
+#    dims_full = (z.size,  proj_pad.jtot, proj_pad.itot)
+#    dims_half = (zh.size, proj_pad.jtot, proj_pad.itot)
+#
+#    fld_full = np.empty(dims_full, dtype=dtype)
+#    fld_half = np.empty(dims_half, dtype=dtype)
+#
+#    # Filter size from meters to `n` grid cells.
+#    sigma_n = int(np.ceil(sigma_h / (6 * proj_pad.dx)))
+#    if sigma_n > 0:
+#        logger.debug(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
+#
+#
+#    """
+#    Process all time steps.
+#    """
+#    for t in range(time.size):
+#        logger.debug(f'Processing time step {t+1}/{time.size}')

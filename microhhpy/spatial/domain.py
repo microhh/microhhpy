@@ -38,6 +38,7 @@ class Domain:
             itot,
             jtot,
             n_ghost,
+            n_sponge,
             xstart_in_parent=None,
             ystart_in_parent=None,
             parent=None,
@@ -66,6 +67,8 @@ class Domain:
             Number of grid points in y-direction.
         n_ghost : int
             Number of horizontal ghost cells.
+        n_sponge : int
+            Number of lateral sponge cells.
         xstart_in_parent: float, optional
             x-offset in parent domain.
         ystart_in_parent: float, optional
@@ -101,7 +104,9 @@ class Domain:
         self.ysize = ysize
 
         self.n_ghost = n_ghost
+        self.n_sponge = n_sponge
         self.n_pad = self.n_ghost + 1
+        self.n_lbc = self.n_pad + n_sponge
 
         self.parent = parent
         self.child = child
