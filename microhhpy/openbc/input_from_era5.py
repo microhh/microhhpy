@@ -24,6 +24,10 @@
 
 # Third-party.
 import numpy as np
+from datetime import datetime
+
+from concurrent.futures import ThreadPoolExecutor
+import multiprocessing
 
 # Local library
 from microhhpy.logger import logger
@@ -167,6 +171,10 @@ def parse_scalar(
         lbc_ds[f'{name}_{loc}'][t,:,:,:] = fld_les[lbc_slice]
 
 
+def parse_scalar_wrapper(args):
+    return parse_scalar(*args)
+
+
 def create_era5_input(
         fields_era,
         lon_era,
@@ -181,6 +189,7 @@ def create_era5_input(
         sigma_h,
         name_suffix='',
         output_dir='.',
+        ntasks=8,
         dtype=np.float64):
     """
     Generate all required MicroHH input from ERA5.
@@ -189,6 +198,7 @@ def create_era5_input(
     2. Lateral boundary conditions.
     3. ...
     """
+    tick = datetime.now()
 
     # Short-cuts.
     proj_pad = domain.proj_pad
@@ -225,10 +235,11 @@ def create_era5_input(
     # This creates the initial fields for t==0, and lateral boundary conditions for all time steps.
     ip_fac = get_interpolation_factors(ip_facs, 's')
 
+    args = []
     for name, fld_era in fields_era.items():
         if name not in ('u', 'v', 'w'):
             for t in range(time_era.size):
-                parse_scalar(
+                args.append((
                     lbc_ds,
                     name,
                     name_suffix,
@@ -241,9 +252,13 @@ def create_era5_input(
                     sigma_n,
                     domain,
                     output_dir,
-                    dtype)
+                    dtype))
 
-
+    with ThreadPoolExecutor(max_workers=ntasks) as executor:
+        results = list(executor.map(parse_scalar_wrapper, args))
+    
+    tock = datetime.now()
+    logger.info(f'Created input from ERA5 in {tock - tick}.')
 
 
 
