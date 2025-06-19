@@ -139,7 +139,43 @@ def parse_scalar(
     domain,
     output_dir,
     dtype):
+    """
+    Parse a single scalar for a single time step.
+    Creates both the initial field (t=0 only) and lateral boundary conditions.
 
+    Parameters
+    ----------
+    lbc_ds : xarray.Dataset
+        Dataset containing lateral boundary condition (LBC) fields.
+    name : str
+        Name of the scalar field.
+    name_suffix : str
+        Suffix to append to the output variable name.
+    t : int
+        Timestep index.
+    fld_era : np.ndarray, shape (3,)
+        Scalar field from ERA5.
+    z_era : np.ndarray, shape (3,)
+        Model level heights ERA5.
+    z_les : np.ndarray, shape (1,)
+        Full level heights LES.
+    ip_fac : `Rect_to_curv_interpolation_factors` instance.
+        Interpolation factors.
+    lbc_slices : dict
+        Dictionary with Numpy slices for each LBC.
+    sigma_n : int
+        Width Gaussian filter kernel in LES grid points.
+    domain : Domain instance
+        Domain information.
+    output_dir : str
+        Output directory.
+    dtype : np.float32 or np.float64
+        Floating point precision.
+
+    Returns
+    -------
+    None
+    """
     logger.debug(f'Processing field {name} at t={t}.')
 
     # Keep creation of 3D field here, for parallel/async exectution..
@@ -171,8 +207,205 @@ def parse_scalar(
         lbc_ds[f'{name}_{loc}'][t,:,:,:] = fld_les[lbc_slice]
 
 
-def parse_scalar_wrapper(args):
-    return parse_scalar(*args)
+def parse_momentum(
+    lbc_ds,
+    name_suffix,
+    t,
+    u_era,
+    v_era,
+    w_era,
+    z_era,
+    z,
+    zh,
+    dz,
+    dzi,
+    rho,
+    rhoh,
+    ip_u,
+    ip_v,
+    ip_s,
+    lbc_slices,
+    sigma_n,
+    domain,
+    output_dir,
+    dtype):
+    """
+    Parse all momentum fields for a single time step..
+    Creates both the initial field (t=0 only) and lateral boundary conditions.
+
+    Steps:
+    1. Blend w to zero to surface over a certain (500 m) depth.
+    2. Correct horizontal divergence of u and v to match subsidence in LES to ERA5.
+    3. Calculate new vertical velocity w to ensure that the fields are divergence free.
+    4. Check resulting divergence.
+
+    Parameters
+    ----------
+    lbc_ds : xarray.Dataset
+        Dataset containing lateral boundary condition (LBC) fields.
+    name_suffix : str
+        Suffix to append to the output variable name.
+    t : int
+        Timestep index.
+    u_era : np.ndarray, shape (3,)
+        u-field from ERA5.
+    v_era : np.ndarray, shape (3,)
+        v-field from ERA5.
+    w_era : np.ndarray, shape (3,)
+        w-field from ERA5.
+    z_era : np.ndarray, shape (3,)
+        Model level heights ERA5.
+    z : np.ndarray, shape (1,)
+        Full level heights LES.
+    zh : np.ndarray, shape (1,)
+        Half level heights LES.
+    dz : np.ndarray, shape (1,)
+        Full level grid spacing LES.
+    dzi : np.ndarray, shape (1,)
+        Inverse of full level grid spacing LES.
+    rho : np.ndarray, shape (1,)
+        Full level base state density.
+    rhoh : np.ndarray, shape (1,)
+        Half level base state density.
+    ip_u : `Rect_to_curv_interpolation_factors` instance.
+        Interpolation factors at u location.
+    ip_v : `Rect_to_curv_interpolation_factors` instance.
+        Interpolation factors at v location.
+    ip_s : `Rect_to_curv_interpolation_factors` instance.
+        Interpolation factors at scalar location.
+    lbc_slices : dict
+        Dictionary with Numpy slices for each LBC.
+    sigma_n : int
+        Width Gaussian filter kernel in LES grid points.
+    domain : Domain instance
+        Domain information.
+    output_dir : str
+        Output directory.
+    dtype : np.float32 or np.float64
+        Floating point precision.
+
+    Returns
+    -------
+    None
+    """
+    logger.debug(f'Processing momentum at t={t}.')
+
+    # Keep creation of 3D field here, for parallel/async exectution..
+    u = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+    v = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+    w = np.empty((zh.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+
+    # Tri-linear interpolation from ERA5 to LES grid.
+    interpolate_rect_to_curv(
+        u,
+        u_era,
+        ip_u.il,
+        ip_u.jl,
+        ip_u.fx,
+        ip_u.fy,
+        z,
+        z_era,
+        dtype)
+
+    interpolate_rect_to_curv(
+        v,
+        v_era,
+        ip_v.il,
+        ip_v.jl,
+        ip_v.fx,
+        ip_v.fy,
+        z,
+        z_era,
+        dtype)
+
+    interpolate_rect_to_curv(
+        w,
+        w_era,
+        ip_s.il,
+        ip_s.jl,
+        ip_s.fx,
+        ip_s.fy,
+        zh,
+        z_era,
+        dtype)
+    
+    # Apply Gaussian filter.
+    if sigma_n > 0:
+        gaussian_filter_wrapper(u, sigma_n)
+        gaussian_filter_wrapper(v, sigma_n)
+        gaussian_filter_wrapper(w, sigma_n)
+
+
+    # ERA5 vertical velocity `w_era` sometimes has strange profiles near surface.
+    # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
+    blend_w_to_zero_at_sfc(w, zh, zmax=500)
+
+    # Correct horizontal divergence of u and v.
+    proj = domain.proj_pad
+    correct_div_uv(
+        u,
+        v,
+        w,
+        rho,
+        rhoh,
+        dzi,
+        proj.x,
+        proj.y,
+        proj.xsize,
+        proj.ysize,
+        domain.n_pad)
+
+    # NOTE: correcting the horizontal divergence only ensures that the _mean_ vertical velocity
+    # is correct. We still need to calculate a new vertical velocity to ensure that the wind
+    # fields are divergence free at a grid point level.
+    calc_w_from_uv(
+        w,
+        u,
+        v,
+        rho,
+        rhoh,
+        dz,
+        domain.dxi,
+        domain.dyi,
+        domain.istart_pad,
+        domain.iend_pad,
+        domain.jstart_pad,
+        domain.jend_pad,
+        dz.size)
+
+    # Check! 
+    div_max, i, j, k = check_divergence(
+        u,
+        v,
+        w,
+        rho,
+        rhoh, 
+        domain.dxi,
+        domain.dyi,
+        dzi,
+        domain.istart_pad,
+        domain.iend_pad,
+        domain.jstart_pad,
+        domain.jend_pad,
+        dz.size)
+    logger.debug(f'Maximum divergence in LES domain: {div_max:.3e} at i={i}, j={j}, k={k}')
+
+    # Save 3D field without ghost cells in binary format as initial/restart file.
+    if t == 0:
+        save_3d_field(u[:  ,:,:], 'u', name_suffix, domain.n_pad, output_dir)
+        save_3d_field(v[:  ,:,:], 'v', name_suffix, domain.n_pad, output_dir)
+        save_3d_field(w[:-1,:,:], 'w', name_suffix, domain.n_pad, output_dir)
+
+    # Save lateral boundaries.
+    for loc in ('west', 'east', 'south', 'north'):
+        lbc_slice = lbc_slices[f'u_{loc}']
+        lbc_ds[f'u_{loc}'][t,:,:,:] = u[lbc_slice]
+
+        lbc_slice = lbc_slices[f'v_{loc}']
+        lbc_ds[f'v_{loc}'][t,:,:,:] = v[lbc_slice]
+
+        lbc_slice = lbc_slices[f'w_{loc}']
+        lbc_ds[f'w_{loc}'][t,:,:,:] = w[lbc_slice]
 
 
 def create_era5_input(
@@ -198,7 +431,7 @@ def create_era5_input(
     2. Lateral boundary conditions.
     3. ...
     """
-    tick = datetime.now()
+    logger.info(f'Creating MicroHH input from ERA5 data in {output_dir}.')
 
     # Short-cuts.
     proj_pad = domain.proj_pad
@@ -212,7 +445,7 @@ def create_era5_input(
     # Setup spatial filtering.
     sigma_n = int(np.ceil(sigma_h / proj_pad.dx))
     if sigma_n > 0:
-        logger.debug(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
+        logger.info(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
 
     # Setup lateral boundary fields.
     lbc_ds = create_lbc_ds(
@@ -223,7 +456,7 @@ def create_era5_input(
         vgrid.z,
         domain.xh,
         domain.yh,
-        vgrid.zh,
+        vgrid.zh[:-1],
         domain.n_ghost,
         domain.n_sponge,
         dtype=dtype)
@@ -231,10 +464,14 @@ def create_era5_input(
     # Numpy slices of lateral boundary conditions.
     lbc_slices = setup_lbc_slices(domain.n_ghost, domain.n_sponge)
 
-    # Parse all field (well, without momentum...) and time steps.
-    # This creates the initial fields for t==0, and lateral boundary conditions for all time steps.
+
+    """
+    Parse scalars.
+    This creates the initial fields for t=0 and lateral boundary conditions for all times.
+    """
     ip_fac = get_interpolation_factors(ip_facs, 's')
 
+    # Run in parallel with ThreadPoolExecutor for ~10x speed-up.
     args = []
     for name, fld_era in fields_era.items():
         if name not in ('u', 'v', 'w'):
@@ -254,11 +491,66 @@ def create_era5_input(
                     output_dir,
                     dtype))
 
+    def parse_scalar_wrapper(args):
+        return parse_scalar(*args)
+
+    tick = datetime.now()
+
     with ThreadPoolExecutor(max_workers=ntasks) as executor:
         results = list(executor.map(parse_scalar_wrapper, args))
-    
+
     tock = datetime.now()
-    logger.info(f'Created input from ERA5 in {tock - tick}.')
+    logger.info(f'Created scalar input from ERA5 in {tock - tick}.')
+
+
+    """
+    Parse momentum fields.
+    This is treated separately, because it requires some corrections to ensure that the fields are divergence free.
+    """
+    if any(fld not in fields_era for fld in ('u', 'v', 'w')):
+        logger.warning('One or more momentum fields missing! Skipping momentum...')
+    else:
+        ip_u = get_interpolation_factors(ip_facs, 'u')
+        ip_v = get_interpolation_factors(ip_facs, 'v')
+        ip_s = get_interpolation_factors(ip_facs, 's')
+
+        # Run in parallel with ThreadPoolExecutor for ~10x speed-up.
+        args = []
+        for t in range(time_era.size):
+            args.append((
+                lbc_ds,
+                name_suffix,
+                t,
+                fields_era['u'][t,:,:,:],
+                fields_era['v'][t,:,:,:],
+                fields_era['w'][t,:,:,:],
+                z_era[t,:,:,:],
+                vgrid.z,
+                vgrid.zh,
+                vgrid.dz,
+                vgrid.dzi,
+                rho,
+                rhoh,
+                ip_u,
+                ip_v,
+                ip_s,
+                lbc_slices,
+                sigma_n,
+                domain,
+                output_dir,
+                dtype))
+
+        def parse_momentum_wrapper(args):
+            return parse_momentum(*args)
+
+        tick = datetime.now()
+
+        with ThreadPoolExecutor(max_workers=ntasks) as executor:
+            results = list(executor.map(parse_momentum_wrapper, args))
+
+        tock = datetime.now()
+        logger.info(f'Created momentum input from ERA5 in {tock - tick}.')
+
 
 
 

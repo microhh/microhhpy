@@ -120,7 +120,6 @@ def correct_div_uv(
     -------
     None
     """
-    logger.debug('Correcting horizontal divergence u and v')
 
     # Take mean over interpolated field without ghost cells, to get target mean subsidence velocity.
     w_target = wls[:, n_pad:-n_pad, n_pad:-n_pad].mean(axis=(1,2))
@@ -141,7 +140,7 @@ def correct_div_uv(
     du_dx = diff_div / 2. / rho
     dv_dy = diff_div / 2. / rho
 
-    logger.debug(f'Velocity corrections: mean du/dx={du_dx.mean()*1000} m/s/km, dv/dy={dv_dy.mean()*1000} m/s/km')
+    logger.debug(f'Velocity corrections: mean duv/dxy={du_dx.mean()*1000} m/s/km')
 
     # Distance from domain center in `x,y`.
     xp = x - xsize / 2.
