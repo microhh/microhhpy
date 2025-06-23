@@ -34,27 +34,102 @@ import microhhpy.constants as cst
 def pow2(x):
     return x*x
 
+
 @njit
 def exner(p):
+    """
+    Calculate exner function (p/p0)**(Rd/cp)
+
+    Arguments:
+    ----------
+    p : float
+        Pressure in Pa.
+
+    Returns:
+    --------
+    float
+        Exner function value.
+    """
     return (p/cst.p0)**(cst.Rd/cst.cp)
+
 
 @njit
 def esat_liq(T):
+    """
+    Calculate saturated water vapor pressure over liquid.
+
+    Arguments:
+    ----------
+    T : float
+        Absolute temperature in K.
+
+    Returns:
+    --------
+    float
+        Saturation vapor pressure Pa.
+    """
     x = np.maximum(-75., T-cst.T0);
     return 611.21*np.exp(17.502*x / (240.97+x))
 
+
 @njit
 def esat_ice(T):
+    """
+    Calculate saturated water vapor pressure over ice.
+
+    Arguments:
+    ----------
+    T : float
+        Absolute temperature in K.
+
+    Returns:
+    --------
+    float
+        Saturation vapor pressure Pa.
+    """
     x = np.maximum(-100., T-cst.T0)
     return 611.15*np.exp(22.452*x / (272.55+x))
 
+
 @njit
 def qsat_liq(p, T):
+    """
+    Calculate saturation specific humidity over liquid water.
+
+    Arguments:
+    ----------
+    p : float
+        Pressure in Pa.
+    T : float
+        Absolute temperature in K.
+
+    Returns:
+    --------
+    float
+        Saturation specific humidity in kg/kg.
+    """
     return cst.ep*esat_liq(T)/(p-(1.-cst.ep)*esat_liq(T))
+
 
 @njit
 def qsat_ice(p, T):
+    """
+    Calculate saturation specific humidity over ice.
+
+    Arguments:
+    ----------
+    p : float
+        Pressure in Pa.
+    T : float
+        Absolute temperature in K.
+
+    Returns:
+    --------
+    float
+        Saturation specific humidity in kg/kg.
+    """
     return cst.ep*esat_ice(T)/(p-(1.-cst.ep)*esat_ice(T))
+
 
 @njit
 def dqsatdT_liq(p, T):
@@ -72,6 +147,21 @@ def water_fraction(T):
 
 @njit
 def qsat(p, T):
+    """
+    Calculate saturation specific humidity.
+
+    Arguments:
+    ----------
+    p : float
+        Pressure in Pa.
+    T : float
+        Absolute temperature in K.
+
+    Returns:
+    --------
+    float
+        Saturation specific humidity in kg/kg.
+    """
     alpha = water_fraction(T)
     return alpha*qsat_liq(p, T) + (1.-alpha)*qsat_ice(p, T)
 
