@@ -160,15 +160,23 @@ class Basestate_moist:
         Save base state in format required by MicroHH.
         """
 
-        if self.remove_ghost:
-            rho = self.rho
-            rhoh = self.rhoh
-        else:
-            gd = self.gd
-            rho = self.rho[gd.kstart:gd.kend]
-            rhoh = self.rhoh[gd.kstart:gd.kend+1]
+        sf = np.s_[:] if self.remove_ghost else np.s_[self.gd.kstart:self.gd.kend]
+        sh = np.s_[:] if self.remove_ghost else np.s_[self.gd.kstart:self.gd.kend+1]
 
-        bs = np.concatenate((rho, rhoh)).astype(self.dtype)
+        fields = [
+            self.thl[sf],
+            self.qt[sf],
+            self.thv[sf],
+            self.thvh[sh],
+            self.p[sf],
+            self.ph[sh],
+            self.ex[sf],
+            self.exh[sh],
+            self.rho[sf],
+            self.rhoh[sh]
+            ]
+
+        bs = np.concatenate(fields).astype(self.dtype)
         bs.tofile(grid_file)
 
 
