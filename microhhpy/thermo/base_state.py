@@ -32,6 +32,126 @@ from microhhpy.spatial import Vertical_grid_2nd
 from .base_thermo import exner, virtual_temperature, sat_adjust
 
 
+def create_moist_basestate(
+        thl,
+        qt,
+        pbot,
+        z,
+        zsize,
+        dtype=np.float64):
+    """
+    Calculate moist thermodynamic base state from the
+    provided liquid water potential temperature, total
+    specific humidity, and surface pressure.
+
+    Parameters:
+    -----------
+    thl : np.ndarray, shape (1,)
+        Liquid water potential temperature on full levels (K).
+    qt : np.ndarray, shape (1,)
+        Total specific humidity on full levels (kg kg-1).
+    pbot : float
+        Surface pressure (Pa).
+    z : np.ndarray, shape (1,)
+        Full level height (m).
+    zsize : float
+        Domain top height (m).
+    dtype : np.dtype
+        Floating point precision, np.float32 or np.float64.
+
+    returns:
+    --------
+    base_state: dict
+        Dictionary with base state fields.
+    """
+
+    # TO-DO: kill `Basestate_moist` class and use this function instead.
+    bs = Basestate_moist(thl, qt, pbot, z, zsize, remove_ghost=True, dtype=dtype)
+
+    return dict(
+        thl=bs.thl,
+        qt=bs.qt,
+        thv=bs.thv,
+        thvh=bs.thvh,
+        p=bs.p,
+        ph=bs.ph,
+        exner=bs.ex,
+        exnerh=bs.exh,
+        rho=bs.rho,
+        rhoh=bs.rhoh
+    )
+
+
+def save_moist_basestate(
+        base_state,
+        file_name):
+    """
+    Save moist thermodynamic base state to binary file.
+
+    Parameters:
+    -----------
+    base_state : dict
+        Dictionary with base state fields.
+    file_name : str
+        Path to the output binary file.
+    """
+    fields = [
+        base_state['thl'],
+        base_state['qt'],
+        base_state['thv'],
+        base_state['thvh'],
+        base_state['p'],
+        base_state['ph'],
+        base_state['exner'],
+        base_state['exnerh'],
+        base_state['rho'],
+        base_state['rhoh']
+    ]
+
+    bs = np.concatenate(fields)
+    bs.tofile(file_name)
+
+
+def read_moist_basestate(
+        file_name,
+        dtype=np.float64):
+    """
+    Read moist thermodynamic base state from binary file.
+
+    Parameters:
+    -----------
+    file_name : str
+        Path to the input binary file.
+    dtype : np.dtype
+        Floating point precision, np.float32 or np.float64.
+
+    Returns:
+    --------
+    base_state : dict
+        Dictionary with base state fields.
+    """
+
+    bs = np.fromfile(file_name, dtype=dtype)
+
+    # This is not at all dangerous.
+    n = int((bs.size - 4) / 10)
+    sizes = [n, n, n, n+1, n, n+1, n, n+1, n, n+1]
+    fields = np.split(bs, np.cumsum(sizes)[:-1])
+
+    return dict(
+        thl = fields[0],
+        qt = fields[1],
+        thv = fields[2],
+        thvh = fields[3],
+        p = fields[4],
+        ph = fields[5],
+        exner = fields[6],
+        exnerh = fields[7],
+        rho = fields[8],
+        rhoh = fields[9]
+    )
+
+
 class Basestate_moist:
     def __init__(self, thl, qt, pbot, z, zsize, remove_ghost=False, dtype=np.float64):
         """
@@ -154,7 +274,6 @@ class Basestate_moist:
             self.qt  = self.qt[gd.kstart:gd.kend]
 
 
-    # This needs to be updated for the new main/develop.
     def to_binary(self, grid_file):
         """
         Save base state in format required by MicroHH.
