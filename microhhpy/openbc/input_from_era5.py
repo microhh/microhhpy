@@ -62,8 +62,7 @@ def setup_interpolations(
 
     Returns:
     -------
-    dict
-        Dictionary with `Rect_to_curv_interpolation_factors` instances.
+    tuple of `Rect_to_curv_interpolation_factors` instances at (u, v, s) locations.
     """
 
     if_u = Rect_to_curv_interpolation_factors(
@@ -75,11 +74,7 @@ def setup_interpolations(
     if_s = Rect_to_curv_interpolation_factors(
         lon_era, lat_era, proj_pad.lon, proj_pad.lat, dtype)
 
-    return dict(
-        u = if_u,
-        v = if_v,
-        s = if_s
-    )
+    return if_u, if_v, if_s
 
 
 def get_interpolation_factors(
@@ -440,7 +435,7 @@ def create_era5_input(
     vgrid = Vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=dtype)
 
     # Setup horizontal interpolations (indexes and factors).
-    ip_facs = setup_interpolations(lon_era, lat_era, proj_pad, dtype=dtype)
+    ip_u, ip_v, ip_s = setup_interpolations(lon_era, lat_era, proj_pad, dtype=dtype)
 
     # Setup spatial filtering.
     sigma_n = int(np.ceil(sigma_h / proj_pad.dx))
@@ -464,17 +459,19 @@ def create_era5_input(
     # Numpy slices of lateral boundary conditions.
     lbc_slices = setup_lbc_slices(domain.n_ghost, domain.n_sponge)
 
+    # Keep track of fields/LBCs that have been parsed.
+    fields = []
 
     """
     Parse scalars.
     This creates the initial fields for t=0 and lateral boundary conditions for all times.
     """
-    ip_fac = get_interpolation_factors(ip_facs, 's')
-
     # Run in parallel with ThreadPoolExecutor for ~10x speed-up.
     args = []
     for name, fld_era in fields_era.items():
         if name not in ('u', 'v', 'w'):
+            fields.append(name)
+
             for t in range(time_era.size):
                 args.append((
                     lbc_ds,
@@ -484,7 +481,7 @@ def create_era5_input(
                     fld_era[t,:,:,:],
                     z_era[t,:,:,:],
                     vgrid.z,
-                    ip_fac,
+                    ip_s,
                     lbc_slices,
                     sigma_n,
                     domain,
@@ -510,9 +507,7 @@ def create_era5_input(
     if any(fld not in fields_era for fld in ('u', 'v', 'w')):
         logger.warning('One or more momentum fields missing! Skipping momentum...')
     else:
-        ip_u = get_interpolation_factors(ip_facs, 'u')
-        ip_v = get_interpolation_factors(ip_facs, 'v')
-        ip_s = get_interpolation_factors(ip_facs, 's')
+        fields.extend(['u', 'v', 'w'])
 
         # Run in parallel with ThreadPoolExecutor for ~10x speed-up.
         args = []
@@ -551,6 +546,14 @@ def create_era5_input(
         tock = datetime.now()
         logger.info(f'Created momentum input from ERA5 in {tock - tick}.')
 
+
+        """
+        Write lateral boundary conditions to file.
+        """
+        for fld in fields:
+            for loc in ['west', 'east', 'north', 'south']:
+                lbc_in = lbc_ds[f'{fld}_{loc}'].values.astype(dtype)
+                lbc_in.tofile(f'{output_dir}/lbc_{fld}_{loc}.0000000')
 
 
 
