@@ -375,6 +375,11 @@ def parse_momentum(
         save_3d_field(v[:  ,:,:], 'v', name_suffix, domain.n_pad, output_dir)
         save_3d_field(w[:-1,:,:], 'w', name_suffix, domain.n_pad, output_dir)
 
+    # Save top boundary condition vertical velocity.
+    n = domain.n_pad
+    time = int(lbc_ds['time'][t])
+    w[-1, n:-n, n:-n].tofile(f'{output_dir}/w_top.{time:07d}')
+
     # Save lateral boundaries.
     for loc in ('west', 'east', 'south', 'north'):
         lbc_slice = lbc_slices[f'u_{loc}']
@@ -387,11 +392,44 @@ def parse_momentum(
         lbc_ds[f'w_{loc}'][t,:,:,:] = w[lbc_slice]
 
 
+def parse_pressure(
+        p_era,
+        z_era,
+        zsize,
+        ip_s,
+        domain,
+        time,
+        output_dir,
+        dtype):
+    """
+    Interpolate 3D pressure field from ERA5 to top-of-domain (TOD) in LES.
+    """
+    logger.debug(f'Processing TOD pressure at t={time}.')
+
+    p_les = np.empty((domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+
+    interpolate_rect_to_curv(
+        p_les,
+        p_era,
+        ip_s.il,
+        ip_s.jl,
+        ip_s.fx,
+        ip_s.fy,
+        zsize,
+        z_era,
+        dtype)
+
+    # Save pressure at top of domain without ghost cells.
+    n = domain.n_pad
+    p_les[n:-n, n:-n].tofile(f'{output_dir}/phydro_tod.{time:07d}')
+
+
 def create_era5_input(
         fields_era,
         lon_era,
         lat_era,
         z_era,
+        p_era,
         time_era,
         z,
         zsize,
@@ -416,6 +454,7 @@ def create_era5_input(
 
     # Short-cuts.
     proj_pad = domain.proj_pad
+    time_era = time_era.astype(np.int32)
 
     # Setup vertical grid. Definition has to perfectly match MicroHH's vertical grid to get divergence free fields.
     gd = calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=dtype)
@@ -447,6 +486,35 @@ def create_era5_input(
 
     # Keep track of fields/LBCs that have been parsed.
     fields = []
+
+
+    """
+    Interpolate 3D pressure to domain top LES.
+    """
+    args = []
+    for t in range(time_era.size):
+        args.append(
+            (p_era[t,:,:,:],
+             z_era[t,:,:,:],
+             gd['zsize'],
+             ip_s,
+             domain,
+             time_era[t],
+             output_dir,
+             dtype)
+        )
+
+    def parse_pressure_wrapper(args):
+        return parse_pressure(*args)
+
+    tick = datetime.now()
+
+    with ThreadPoolExecutor(max_workers=ntasks) as executor:
+        results = list(executor.map(parse_pressure_wrapper, args))
+
+    tock = datetime.now()
+    logger.info(f'Created TOD pressure input from ERA5 in {tock - tick}.')
+
 
     """
     Parse scalars.

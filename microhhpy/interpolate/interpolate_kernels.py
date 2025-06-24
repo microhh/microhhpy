@@ -214,11 +214,11 @@ def interpolate_rect_to_curv(
         3D ERA5 field to 2D LES field at fixed height.
         """
         # Checks.
-        if isinstance(z_in, np.ndarray):
-            if z_out.size > 1:
-                raise Exception('3D to 2D interpolation, but multiple output heights provided (z_out.size > 1).')
-            else:
-                z_out = z_out[0]
+        #if isinstance(z_in, np.ndarray):
+        #    if z_out.size > 1:
+        #        raise Exception('3D to 2D interpolation, but multiple output heights provided (z_out.size > 1).')
+        #    else:
+        #        z_out = z_out[0]
 
         jtot_les, itot_les = fld_out.shape
         ktot_era, jtot_era, itot_era = fld_in.shape
