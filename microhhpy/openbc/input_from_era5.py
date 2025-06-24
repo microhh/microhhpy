@@ -33,7 +33,7 @@ import multiprocessing
 from microhhpy.logger import logger
 from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation_factors
 from microhhpy.interpolate.interpolate_kernels import interpolate_rect_to_curv
-from microhhpy.spatial import Vertical_grid_2nd
+from microhhpy.spatial import calc_vertical_grid_2nd
 
 from .global_help_functions import gaussian_filter_wrapper, blend_w_to_zero_at_sfc
 from .global_help_functions import correct_div_uv, calc_w_from_uv, check_divergence
@@ -432,7 +432,7 @@ def create_era5_input(
     proj_pad = domain.proj_pad
 
     # Setup vertical grid. Definition has to perfectly match MicroHH's vertical grid to get divergence free fields.
-    vgrid = Vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=dtype)
+    gd = calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=dtype)
 
     # Setup horizontal interpolations (indexes and factors).
     ip_u, ip_v, ip_s = setup_interpolations(lon_era, lat_era, proj_pad, dtype=dtype)
@@ -448,10 +448,10 @@ def create_era5_input(
         time_era,
         domain.x,
         domain.y,
-        vgrid.z,
+        gd['z'],
         domain.xh,
         domain.yh,
-        vgrid.zh[:-1],
+        gd['zh'][:-1],
         domain.n_ghost,
         domain.n_sponge,
         dtype=dtype)
@@ -480,7 +480,7 @@ def create_era5_input(
                     t,
                     fld_era[t,:,:,:],
                     z_era[t,:,:,:],
-                    vgrid.z,
+                    gd['z'],
                     ip_s,
                     lbc_slices,
                     sigma_n,
@@ -520,10 +520,10 @@ def create_era5_input(
                 fields_era['v'][t,:,:,:],
                 fields_era['w'][t,:,:,:],
                 z_era[t,:,:,:],
-                vgrid.z,
-                vgrid.zh,
-                vgrid.dz,
-                vgrid.dzi,
+                gd['z'],
+                gd['zh'],
+                gd['dz'],
+                gd['dzi'],
                 rho,
                 rhoh,
                 ip_u,
