@@ -28,7 +28,7 @@ import numpy as np
 # Local librariy
 from microhhpy.logger import logger
 import microhhpy.constants as cst
-from microhhpy.spatial import Vertical_grid_2nd
+from microhhpy.spatial import calc_vertical_grid_2nd, Vertical_grid_2nd
 from .base_thermo import exner, virtual_temperature, sat_adjust
 
 
@@ -65,20 +65,119 @@ def calc_moist_basestate(
         Dictionary with base state fields.
     """
 
-    # TO-DO: kill `Basestate_moist` class and use this function instead.
-    bs = Basestate_moist(thl, qt, pbot, z, zsize, remove_ghost=True, dtype=dtype)
+    thl_in = thl.copy()
+    qt_in = qt.copy()
+
+    gd = calc_vertical_grid_2nd(z, zsize, dtype=dtype, remove_ghost=False)
+
+    z = gd['z']
+    zh = gd['zh']
+
+    kcells = gd['ktot'] + 2
+    kstart = 1
+    kend = gd['ktot'] + 1
+
+    p = np.zeros(kcells)
+    ph = np.zeros(kcells)
+
+    rho = np.zeros(kcells)
+    rhoh = np.zeros(kcells)
+
+    thv = np.zeros(kcells)
+    thvh = np.zeros(kcells)
+
+    ex = np.zeros(kcells)
+    exh = np.zeros(kcells)
+
+    # Add ghost cells to input profiles
+    thl = np.zeros(kcells, dtype)
+    qt  = np.zeros(kcells, dtype)
+
+    thl[kstart:kend] = thl_in
+    qt [kstart:kend] = qt_in
+
+    # Calculate surface and domain top values.
+    thl0s = thl[kstart] - gd['z'][kstart] * (thl[kstart+1] - thl[kstart]) * gd['dzhi'][kstart+1]
+    qt0s  = qt[kstart]  - gd['z'][kstart] * (qt [kstart+1] - qt [kstart]) * gd['dzhi'][kstart+1]
+
+    thl0t = thl[kend-1] + (gd['zh'][kend] - gd['z'][kend-1]) * (thl[kend-1]-thl[kend-2]) * gd['dzhi'][kend-1]
+    qt0t  = qt[kend-1]  + (gd['zh'][kend] - gd['z'][kend-1]) * (qt [kend-1]- qt[kend-2]) * gd['dzhi'][kend-1]
+
+    # Set the ghost cells for the reference temperature and moisture
+    thl[kstart-1]  = 2.*thl0s - thl[kstart];
+    thl[kend]      = 2.*thl0t - thl[kend-1];
+
+    qt[kstart-1]   = 2.*qt0s  - qt[kstart];
+    qt[kend]       = 2.*qt0t  - qt[kend-1];
+
+    # Calculate profiles.
+    ph[kstart] = pbot
+    exh[kstart] = exner(pbot)
+
+    _, ql, qi, _ = sat_adjust(thl0s, qt0s, pbot)
+
+    thvh[kstart] = virtual_temperature(
+            exh[kstart], thl0s, qt0s, ql, qi)
+    rhoh[kstart] = pbot / (cst.Rd * exh[kstart] * thvh[kstart])
+
+    # Calculate the first full level pressure
+    p[kstart] = \
+        ph[kstart] * np.exp(-cst.grav * gd['z'][kstart] / (cst.Rd * exh[kstart] * thvh[kstart]))
+
+    for k in range(kstart+1, kend+1):
+        # 1. Calculate remaining values (thv and rho) at full-level[k-1]
+        ex[k-1] = exner(p[k-1])
+        _, ql, qi, _ = sat_adjust(thl[k-1], qt[k-1], p[k-1], ex[k-1])
+        thv[k-1] = virtual_temperature(ex[k-1], thl[k-1], qt[k-1], ql, qi)
+        rho[k-1] = p[k-1] / (cst.Rd * ex[k-1] * thv[k-1])
+
+        # 2. Calculate pressure at half-level[k]
+        ph[k] = ph[k-1] * np.exp(-cst.grav * gd['dz'][k-1] / (cst.Rd * ex[k-1] * thv[k-1]))
+        exh[k] = exner(ph[k])
+
+        # 3. Use interpolated conserved quantities to calculate half-level[k] values
+        thli = 0.5*(thl[k-1] + thl[k])
+        qti  = 0.5*(qt[k-1] + qt[k])
+        _, qli, qii, _ = sat_adjust(thli, qti, ph[k], exh[k])
+
+        thvh[k] = virtual_temperature(exh[k], thli, qti, qli, qii)
+        rhoh[k] = ph[k] / (cst.Rd * exh[k] * thvh[k])
+
+        # 4. Calculate pressure at full-level[k]
+        p[k] = p[k-1] * np.exp(-cst.grav * gd['dzh'][k] / (cst.Rd * exh[k] * thvh[k]))
+
+    p[kstart-1] = 2. * ph[kstart] - p[kstart]
+
+    """
+    Strip off the ghost cells, to leave `ktot` full levels and `ktot+1` half levels.
+    """
+    p = p[kstart:kend]
+    ph = ph[kstart:kend+1]
+
+    rho = rho[kstart:kend]
+    rhoh = rhoh[kstart:kend+1]
+
+    thv = thv[kstart:kend]
+    thvh = thvh[kstart:kend+1]
+
+    ex = ex[kstart:kend]
+    exh = exh[kstart:kend+1]
+
+    thl = thl[kstart:kend]
+    qt  = qt[kstart:kend]
+
 
     return dict(
-        thl=bs.thl,
-        qt=bs.qt,
-        thv=bs.thv,
-        thvh=bs.thvh,
-        p=bs.p,
-        ph=bs.ph,
-        exner=bs.ex,
-        exnerh=bs.exh,
-        rho=bs.rho,
-        rhoh=bs.rhoh
+        thl=thl,
+        qt=qt,
+        thv=thv,
+        thvh=thvh,
+        p=p,
+        ph=ph,
+        exner=ex,
+        exnerh=exh,
+        rho=rho,
+        rhoh=rhoh
     )
 
 
