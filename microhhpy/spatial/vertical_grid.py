@@ -29,7 +29,7 @@ import numpy as np
 
 
 class Vertical_grid_2nd:
-    def __init__(self, z_in, zsize_in, remove_ghost=False, dtype=np.float64):
+    def __init__(self, z_in, zsize_in, remove_ghost=True, dtype=np.float64):
         """
         Calculate vertical grid, identical to definition in MicroHH,
         including one ghost cell at the bottom and top.
@@ -41,7 +41,7 @@ class Vertical_grid_2nd:
         zsize : float
             Height of domain top.
         remove_ghost : bool, optional
-            Clip off the ghost cells, leaving `ktot` full and `ktot+` half levels.
+            Clip off the ghost cells, leaving `ktot` full and `ktot+` half levels. Default is True.
         dtype : np.dtype, optional
             Output datatype (np.float32 or np.float64) of arrays.
         """
