@@ -28,6 +28,84 @@ import numpy as np
 # Local library
 
 
+def calculate_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
+    """
+    Calculate vertical grid, identical to definition in MicroHH.
+
+    Arguments:
+    ----------
+    z : np.ndarray, shape (1,)
+        Array with input full level heights, like in `case_input.nc`.
+    zsize : float
+        Height of domain top.
+    remove_ghost : bool, optional
+        Clip off the ghost cells, leaving `ktot` full and `ktot+` half levels. Default is True.
+    dtype : np.dtype, optional
+        Output datatype (np.float32 or np.float64) of arrays.
+
+    Returns:
+    --------
+    vertical grid : dict
+        Dictionary containing grid properties.
+    """
+
+    z_in = z.copy()
+
+    ktot = z.size
+    kcells = ktot+2
+
+    kstart = 1
+    kend = ktot+1
+
+    z = np.zeros(kcells, dtype)
+    zh = np.zeros(kcells, dtype)
+
+    dz = np.zeros(kcells, dtype)
+    dzh = np.zeros(kcells, dtype)
+
+    # Full level heights
+    z[kstart:kend] = z_in
+    z[kstart-1] = -z[kstart]
+    z[kend] = 2*zsize - z[kend-1]
+
+    # Half level heights
+    for k in range(kstart+1, kend):
+        zh[k] = 0.5*(z[k-1] + z[k])
+    zh[kstart] = 0.
+    zh[kend] = zsize
+
+    for k in range(1, kcells):
+        dzh[k] = z[k] - z[k-1];
+    dzh[kstart-1] = dzh[kstart+1]
+    dzhi = 1./dzh
+
+    for k in range(1, kcells-1):
+        dz[k] = zh[k+1] - zh[k];
+    dz[kstart-1] = dz[kstart];
+    dz[kend] = dz[kend-1];
+    dzi = 1./dz
+
+    if remove_ghost:
+        # Clip off the ghost cells, leaving `ktot` full levels and `ktot+1` half levels.
+        z    = z   [kstart:kend]
+        dz   = dz  [kstart:kend]
+        dzi  = dzi [kstart:kend]
+
+        zh   = zh  [kstart:kend+1]
+        dzh  = dzh [kstart:kend+1]
+        dzhi = dzhi[kstart:kend+1]
+
+    return dict(
+        ktot=ktot,
+        z=z,
+        zh=zh,
+        dz=dz,
+        dzh=dzh,
+        dzi=dzi,
+        dzhi=dzhi
+    )
+
+
 class Vertical_grid_2nd:
     def __init__(self, z_in, zsize_in, remove_ghost=True, dtype=np.float64):
         """

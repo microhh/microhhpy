@@ -32,7 +32,7 @@ from microhhpy.spatial import Vertical_grid_2nd
 from .base_thermo import exner, virtual_temperature, sat_adjust
 
 
-def create_moist_basestate(
+def calculate_moist_basestate(
         thl,
         qt,
         pbot,
@@ -177,7 +177,7 @@ class Basestate_moist:
             Floating point precision, np.float32 or np.float64.
         """
 
-        gd = Vertical_grid_2nd(z, zsize, dtype=dtype)
+        gd = Vertical_grid_2nd(z, zsize, dtype=dtype, remove_ghost=False)
 
         self.gd = gd
         self.remove_ghost = remove_ghost
