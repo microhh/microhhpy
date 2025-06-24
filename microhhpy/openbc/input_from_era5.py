@@ -100,6 +100,7 @@ def parse_scalar(
     name,
     name_suffix,
     t,
+    time,
     fld_era,
     z_era,
     z_les,
@@ -125,6 +126,8 @@ def parse_scalar(
         Suffix to append to the output variable name.
     t : int
         Timestep index.
+    time : int
+        Time in seconds since start of experiment.
     fld_era : np.ndarray, shape (3,)
         Scalar field from ERA5.
     z_era : np.ndarray, shape (3,)
@@ -152,7 +155,7 @@ def parse_scalar(
     -------
     None
     """
-    logger.debug(f'Processing field {name} at t={t}.')
+    logger.debug(f'Processing field {name} at t={time}.')
 
     # Keep creation of 3D field here, for parallel/async exectution..
     fld_les = np.empty((z_les.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
@@ -191,6 +194,7 @@ def parse_momentum(
     lbc_ds,
     name_suffix,
     t,
+    time,
     u_era,
     v_era,
     w_era,
@@ -227,6 +231,8 @@ def parse_momentum(
         Suffix to append to the output variable name.
     t : int
         Timestep index.
+    time : int
+        Time in seconds since start of experiment.
     u_era : np.ndarray, shape (3,)
         u-field from ERA5.
     v_era : np.ndarray, shape (3,)
@@ -268,7 +274,7 @@ def parse_momentum(
     -------
     None
     """
-    logger.debug(f'Processing momentum at t={t}.')
+    logger.debug(f'Processing momentum at t={time}.')
 
     # Keep creation of 3D field here, for parallel/async exectution..
     u = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
@@ -403,6 +409,29 @@ def parse_pressure(
         dtype):
     """
     Interpolate 3D pressure field from ERA5 to top-of-domain (TOD) in LES.
+
+    Arguments:
+    ---------
+    p_era : np.ndarray, shape (3,)
+        Pressure field from ERA5.
+    z_era : np.ndarray, shape (3,)
+        Model level heights ERA5.
+    zsize : float
+        Domain height LES.
+    ip_s : `Rect_to_curv_interpolation_factors` instance
+        Interpolation factors at scalar location.
+    domain : Domain instance
+        Domain information.
+    time : int 
+        Time in seconds since start of experiment.
+    output_dir : str
+        Output directory files.
+    dtype : np.float32 or np.float64
+        Floating point precision.
+
+    returns:
+    -------
+    None
     """
     logger.debug(f'Processing TOD pressure at t={time}.')
 
@@ -532,6 +561,7 @@ def create_era5_input(
                     name,
                     name_suffix,
                     t,
+                    time_era[t],
                     fld_era[t,:,:,:],
                     z_era[t,:,:,:],
                     gd['z'],
@@ -572,6 +602,7 @@ def create_era5_input(
                 lbc_ds,
                 name_suffix,
                 t,
+                time_era[t],
                 fields_era['u'][t,:,:,:],
                 fields_era['v'][t,:,:,:],
                 fields_era['w'][t,:,:,:],
