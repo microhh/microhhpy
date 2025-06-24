@@ -26,9 +26,10 @@
 import numpy as np
 
 # Local library
+from microhhpy.logger import logger
 
 
-def calculate_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
+def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
     """
     Calculate vertical grid, identical to definition in MicroHH.
 
@@ -97,6 +98,7 @@ def calculate_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
 
     return dict(
         ktot=ktot,
+        zsize=zsize,
         z=z,
         zh=zh,
         dz=dz,
@@ -123,6 +125,9 @@ class Vertical_grid_2nd:
         dtype : np.dtype, optional
             Output datatype (np.float32 or np.float64) of arrays.
         """
+        logger.warning(
+            'Vertical_grid_2nd() is deprecated, use calc_vertical_grid_2nd() instead.'
+        )
 
         self.zsize = zsize_in
 

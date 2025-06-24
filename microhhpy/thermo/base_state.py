@@ -25,14 +25,14 @@
 # Third-party.
 import numpy as np
 
-# Local library
+# Local librariy
+from microhhpy.logger import logger
 import microhhpy.constants as cst
 from microhhpy.spatial import Vertical_grid_2nd
-
 from .base_thermo import exner, virtual_temperature, sat_adjust
 
 
-def calculate_moist_basestate(
+def calc_moist_basestate(
         thl,
         qt,
         pbot,
@@ -176,6 +176,9 @@ class Basestate_moist:
         dtype : np.dtype
             Floating point precision, np.float32 or np.float64.
         """
+        logger.warning(
+            'Basestate_moist() is deprecated, use calc_basestate_moist() instead.'
+        )
 
         gd = Vertical_grid_2nd(z, zsize, dtype=dtype, remove_ghost=False)
 
