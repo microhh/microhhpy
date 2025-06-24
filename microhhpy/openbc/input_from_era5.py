@@ -35,8 +35,9 @@ from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation
 from microhhpy.interpolate.interpolate_kernels import interpolate_rect_to_curv
 from microhhpy.spatial import calc_vertical_grid_2nd
 
-from .global_help_functions import gaussian_filter_wrapper, blend_w_to_zero_at_sfc
-from .global_help_functions import correct_div_uv, calc_w_from_uv, check_divergence
+from .global_help_functions import gaussian_filter_wrapper
+from .global_help_functions import correct_div_uv
+from .numba_kernels import block_perturb_field, blend_w_to_zero_at_sfc, calc_w_from_uv, check_divergence
 from .lbc_help_functions import create_lbc_ds, setup_lbc_slices
 
 
@@ -77,32 +78,6 @@ def setup_interpolations(
     return if_u, if_v, if_s
 
 
-def get_interpolation_factors(
-        factors,
-        name):
-    """
-    Get interpolation factors at correct staggered grid location.
-
-    Arguments:
-    ---------
-    factors : dict
-        Dictionary with `Rect_to_curv_interpolation_factors` instances.
-    name : str
-        Name of field.
-
-    Returns:
-    -------
-        `Rect_to_curv_interpolation_factors` instance
-    """
-
-    if name == 'u':
-        return factors['u']
-    elif name == 'v':
-        return factors['v']
-    else:
-        return factors['s']
-
-
 def save_3d_field(
         fld,
         name,
@@ -131,6 +106,8 @@ def parse_scalar(
     ip_fac,
     lbc_slices,
     sigma_n,
+    perturb_size,
+    perturb_amplitude,
     domain,
     output_dir,
     dtype):
@@ -160,6 +137,10 @@ def parse_scalar(
         Dictionary with Numpy slices for each LBC.
     sigma_n : int
         Width Gaussian filter kernel in LES grid points.
+    perturb_size : int
+        Perturb 3D fields in blocks of certain size (equal in all dimensions).
+    perturb_amplitude : dict
+        Dictionary with perturbation amplitudes for each field.
     domain : Domain instance
         Domain information.
     output_dir : str
@@ -191,6 +172,10 @@ def parse_scalar(
     # Apply Gaussian filter.
     if sigma_n > 0:
         gaussian_filter_wrapper(fld_les, sigma_n)
+
+    # Apply perturbation to the field.
+    if name in perturb_amplitude.keys() and perturb_size > 0:
+        block_perturb_field(fld_les, perturb_size, perturb_amplitude[name])
     
     # Save 3D field without ghost cells in binary format as initial/restart file.
     if t == 0:
@@ -330,7 +315,6 @@ def parse_momentum(
         gaussian_filter_wrapper(v, sigma_n)
         gaussian_filter_wrapper(w, sigma_n)
 
-
     # ERA5 vertical velocity `w_era` sometimes has strange profiles near surface.
     # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
     blend_w_to_zero_at_sfc(w, zh, zmax=500)
@@ -415,6 +399,8 @@ def create_era5_input(
         rhoh,
         domain,
         sigma_h,
+        perturb_size=0,
+        perturb_amplitude={},
         name_suffix='',
         output_dir='.',
         ntasks=8,
@@ -484,6 +470,8 @@ def create_era5_input(
                     ip_s,
                     lbc_slices,
                     sigma_n,
+                    perturb_size,
+                    perturb_amplitude,
                     domain,
                     output_dir,
                     dtype))

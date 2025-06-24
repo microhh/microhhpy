@@ -245,12 +245,3 @@ def setup_lbc_slices(n_ghost, n_sponge):
             w_north = np.s_[:-1, -n_lbc:-1, 1:-1])
 
     return slices
-
-
-def get_lbc_slice(name, loc, n_lbc):
-
-
-    if name not in ('u', 'v', 'w'):
-        return slices[f's_{loc}']
-    else:
-        return slices[f'{name}_{loc}']
