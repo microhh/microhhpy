@@ -23,6 +23,7 @@
 # Standard library
 
 # Third-party.
+import xarray as xr
 import numpy as np
 from datetime import datetime
 
@@ -160,6 +161,10 @@ def parse_scalar(
     # Keep creation of 3D field here, for parallel/async exectution..
     fld_les = np.empty((z_les.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
 
+    # Lazily load data in case xarray data is provided.
+    if isinstance(fld_era, xr.DataArray):
+        fld_era = fld_era.values
+
     # Tri-linear interpolation from ERA5 to LES grid.
     interpolate_rect_to_curv(
         fld_les,
@@ -280,6 +285,14 @@ def parse_momentum(
     u = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
     v = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
     w = np.empty((zh.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+
+    # Lazily load data in case xarray data is provided.
+    if isinstance(u_era, xr.DataArray):
+        u_era = u_era.values
+    if isinstance(v_era, xr.DataArray):
+        v_era = v_era.values
+    if isinstance(w_era, xr.DataArray):
+        w_era = w_era.values
 
     # Tri-linear interpolation from ERA5 to LES grid.
     interpolate_rect_to_curv(
@@ -436,6 +449,10 @@ def parse_pressure(
     logger.debug(f'Processing TOD pressure at t={time}.')
 
     p_les = np.empty((domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+
+    # Lazily load data in case xarray data is provided.
+    if isinstance(p_era, xr.DataArray):
+        p_era = p_era.values
 
     interpolate_rect_to_curv(
         p_les,
