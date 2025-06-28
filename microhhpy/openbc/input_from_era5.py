@@ -479,6 +479,7 @@ def create_era5_input(
         time_era,
         z,
         zsize,
+        #zstart_buffer,
         rho,
         rhoh,
         domain,
@@ -529,6 +530,9 @@ def create_era5_input(
 
     # Numpy slices of lateral boundary conditions.
     lbc_slices = setup_lbc_slices(domain.n_ghost, domain.n_sponge)
+
+    # Setup 3D buffer.
+
 
     # Keep track of fields/LBCs that have been parsed.
     fields = []
