@@ -111,6 +111,7 @@ def parse_scalar(
     perturb_size,
     perturb_amplitude,
     domain,
+    kstart_buffer,
     output_dir,
     dtype):
     """
@@ -147,6 +148,8 @@ def parse_scalar(
         Dictionary with perturbation amplitudes for each field.
     domain : Domain instance
         Domain information.
+    kstart_buffer : int
+        Start index of the buffer in the vertical direction.
     output_dir : str
         Output directory.
     dtype : np.float32 or np.float64
@@ -157,6 +160,9 @@ def parse_scalar(
     None
     """
     logger.debug(f'Processing field {name} at t={time}.')
+
+    # Short-cuts
+    n_pad = domain.n_pad
 
     # Keep creation of 3D field here, for parallel/async exectution..
     fld_les = np.empty((z_les.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
@@ -187,12 +193,15 @@ def parse_scalar(
     
     # Save 3D field without ghost cells in binary format as initial/restart file.
     if t == 0:
-        save_3d_field(fld_les, name, name_suffix, domain.n_pad, output_dir)
+        save_3d_field(fld_les, name, name_suffix, n_pad, output_dir)
 
     # Save lateral boundaries.
     for loc in ('west', 'east', 'south', 'north'):
         lbc_slice = lbc_slices[f's_{loc}']
         lbc_ds[f'{name}_{loc}'][t,:,:,:] = fld_les[lbc_slice]
+
+    # Save 3D buffer field.
+    fld_les[kstart_buffer:, n_pad:-n_pad, n_pad:-n_pad].tofile(f'{output_dir}/{name}_buffer.{time:07d}')
 
 
 def parse_momentum(
@@ -216,6 +225,8 @@ def parse_momentum(
     lbc_slices,
     sigma_n,
     domain,
+    kstart_buffer,
+    kstarth_buffer,
     output_dir,
     dtype):
     """
@@ -270,6 +281,10 @@ def parse_momentum(
         Width Gaussian filter kernel in LES grid points.
     domain : Domain instance
         Domain information.
+    kstart_buffer : int
+        Start index (full levels) of the buffer in the vertical direction.
+    kstarth_buffer : int
+        Start index (half levels) of the buffer in the vertical direction.
     output_dir : str
         Output directory.
     dtype : np.float32 or np.float64
@@ -280,6 +295,9 @@ def parse_momentum(
     None
     """
     logger.debug(f'Processing momentum at t={time}.')
+
+    # Short-cuts
+    n_pad = domain.n_pad
 
     # Keep creation of 3D field here, for parallel/async exectution..
     u = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
@@ -390,9 +408,9 @@ def parse_momentum(
 
     # Save 3D field without ghost cells in binary format as initial/restart file.
     if t == 0:
-        save_3d_field(u[:  ,:,:], 'u', name_suffix, domain.n_pad, output_dir)
-        save_3d_field(v[:  ,:,:], 'v', name_suffix, domain.n_pad, output_dir)
-        save_3d_field(w[:-1,:,:], 'w', name_suffix, domain.n_pad, output_dir)
+        save_3d_field(u[:  ,:,:], 'u', name_suffix, n_pad, output_dir)
+        save_3d_field(v[:  ,:,:], 'v', name_suffix, n_pad, output_dir)
+        save_3d_field(w[:-1,:,:], 'w', name_suffix, n_pad, output_dir)
 
     # Save top boundary condition vertical velocity.
     n = domain.n_pad
@@ -409,6 +427,11 @@ def parse_momentum(
 
         lbc_slice = lbc_slices[f'w_{loc}']
         lbc_ds[f'w_{loc}'][t,:,:,:] = w[lbc_slice]
+
+    # Save 3D buffer field.
+    u[kstart_buffer:,    n_pad:-n_pad, n_pad:-n_pad].tofile(f'{output_dir}/u_buffer.{time:07d}')
+    v[kstart_buffer:,    n_pad:-n_pad, n_pad:-n_pad].tofile(f'{output_dir}/v_buffer.{time:07d}')
+    w[kstarth_buffer:-1, n_pad:-n_pad, n_pad:-n_pad].tofile(f'{output_dir}/w_buffer.{time:07d}')
 
 
 def parse_pressure(
@@ -479,7 +502,7 @@ def create_era5_input(
         time_era,
         z,
         zsize,
-        #zstart_buffer,
+        zstart_buffer,
         rho,
         rhoh,
         domain,
@@ -514,6 +537,10 @@ def create_era5_input(
     if sigma_n > 0:
         logger.info(f'Using Gaussian filter with sigma = {sigma_n} grid cells')
 
+    # Setup 3D buffer output.
+    kstart_buffer  = int(np.where(gd['z']  >= zstart_buffer)[0][0])
+    kstarth_buffer = int(np.where(gd['zh'] >= zstart_buffer)[0][0])
+
     # Setup lateral boundary fields.
     lbc_ds = create_lbc_ds(
         list(fields_era.keys()),
@@ -530,9 +557,6 @@ def create_era5_input(
 
     # Numpy slices of lateral boundary conditions.
     lbc_slices = setup_lbc_slices(domain.n_ghost, domain.n_sponge)
-
-    # Setup 3D buffer.
-
 
     # Keep track of fields/LBCs that have been parsed.
     fields = []
@@ -592,6 +616,7 @@ def create_era5_input(
                     perturb_size,
                     perturb_amplitude,
                     domain,
+                    kstart_buffer,
                     output_dir,
                     dtype))
 
@@ -640,6 +665,8 @@ def create_era5_input(
                 lbc_slices,
                 sigma_n,
                 domain,
+                kstart_buffer,
+                kstarth_buffer,
                 output_dir,
                 dtype))
 
