@@ -251,6 +251,55 @@ def read_moist_basestate(
     )
 
 
+def save_basestate_density(
+        rho,
+        rhoh,
+        file_name):
+    """
+    Save base state density to binary file.
+
+    Parameters:
+    -----------
+    rho : np.ndarray, shape (1,)
+        Density at full levels.
+    rhoh : np.ndarray, shape (1,)
+        Density at half levels.
+    file_name : str
+        Path to the output binary file.
+    """
+
+    bs = np.concatenate([rho, rhoh])
+    bs.tofile(file_name)
+
+
+def read_basestate_density(
+        file_name,
+        dtype=np.float64):
+    """
+    Read base state density from binary file.
+
+    Parameters:
+    -----------
+    file_name : str
+        Path to the input binary file.
+    dtype : np.dtype
+        Floating point precision, np.float32 or np.float64.
+
+    Returns:
+    --------
+    rho : np.ndarray, shape (1,)
+        Density at full levels.
+    rhoh : np.ndarray, shape (1,)
+        Density at half levels.
+    """
+
+    bs = np.fromfile(file_name, dtype=dtype)
+    n = int((bs.size - 1) / 2)
+
+    return bs[:n], bs[n:]
+
+
+
 class Basestate_dry:
     def __init__(self, th, pbot, z, zsize, remove_ghost=False, dtype=np.float64):
         """
