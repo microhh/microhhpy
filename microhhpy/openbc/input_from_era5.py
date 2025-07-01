@@ -110,6 +110,7 @@ def parse_scalar(
     sigma_n,
     perturb_size,
     perturb_amplitude,
+    perturb_max_height,
     domain,
     kstart_buffer,
     output_dir,
@@ -189,7 +190,7 @@ def parse_scalar(
 
     # Apply perturbation to the field.
     if name in perturb_amplitude.keys() and perturb_size > 0:
-        block_perturb_field(fld_les, perturb_size, perturb_amplitude[name])
+        block_perturb_field(fld_les, z_les, perturb_size, perturb_amplitude[name], perturb_max_height)
     
     # Save 3D field without ghost cells in binary format as initial/restart file.
     if t == 0:
@@ -509,6 +510,7 @@ def create_era5_input(
         sigma_h,
         perturb_size=0,
         perturb_amplitude={},
+        perturb_max_height=0,
         name_suffix='',
         output_dir='.',
         ntasks=8,
@@ -615,6 +617,7 @@ def create_era5_input(
                     sigma_n,
                     perturb_size,
                     perturb_amplitude,
+                    perturb_max_height,
                     domain,
                     kstart_buffer,
                     output_dir,

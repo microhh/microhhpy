@@ -200,8 +200,10 @@ def check_divergence(
 @jit(nopython=True, nogil=True, fastmath=True)
 def block_perturb_field(
     fld,
+    z,
     block_size,
-    amplitude):
+    amplitude,
+    max_height):
     """
     Add random perturbations to field, in block sizes in all spatial directions of size `block_size`.
 
@@ -209,10 +211,14 @@ def block_perturb_field(
     ---------
     fld : np.ndarray, shape (3,)
         Field to perturb.
+    z : np.ndarray, shape (1,)
+        Full level height.
     block_size : int
         Size of the blocks in each spatial direction.
     amplitude : float
         Amplitude of the perturbations to add.
+    max_height : float
+        Maximum height at which to apply perturbations.
 
     Returns:
     -------
@@ -225,17 +231,20 @@ def block_perturb_field(
     nblock_i = int(np.ceil(itot / block_size))
 
     for bk in range(nblock_k):
-        for bj in range(nblock_j):
-            for bi in prange(nblock_i):
-                random_val = 2 * amplitude * (np.random.random()-0.5)
+        if z[bk * block_size] < max_height:
 
-                for dk in range(block_size):
-                    for dj in range(block_size):
-                        for di in range(block_size):
-                            k = bk*block_size + dk
-                            j = bj*block_size + dj
-                            i = bi*block_size + di
+            for bj in range(nblock_j):
+                for bi in prange(nblock_i):
 
-                            # Bounds check in case `dim % blocksize != 0`.
-                            if k < ktot and j<jtot and i<itot:
-                                fld[k,j,i] += random_val
+                    random_val = 2 * amplitude * (np.random.random()-0.5)
+
+                    for dk in range(block_size):
+                        for dj in range(block_size):
+                            for di in range(block_size):
+                                k = bk*block_size + dk
+                                j = bj*block_size + dj
+                                i = bi*block_size + di
+
+                                # Bounds check in case `dim % blocksize != 0`.
+                                if k < ktot and j<jtot and i<itot:
+                                    fld[k,j,i] += random_val
