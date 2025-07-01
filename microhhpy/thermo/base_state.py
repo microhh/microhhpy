@@ -77,17 +77,17 @@ def calc_moist_basestate(
     kstart = 1
     kend = gd['ktot'] + 1
 
-    p = np.zeros(kcells)
-    ph = np.zeros(kcells)
+    p = np.zeros(kcells, dtype)
+    ph = np.zeros(kcells, dtype)
 
-    rho = np.zeros(kcells)
-    rhoh = np.zeros(kcells)
+    rho = np.zeros(kcells, dtype)
+    rhoh = np.zeros(kcells, dtype)
 
-    thv = np.zeros(kcells)
-    thvh = np.zeros(kcells)
+    thv = np.zeros(kcells, dtype)
+    thvh = np.zeros(kcells, dtype)
 
-    ex = np.zeros(kcells)
-    exh = np.zeros(kcells)
+    ex = np.zeros(kcells, dtype)
+    exh = np.zeros(kcells, dtype)
 
     # Add ghost cells to input profiles
     thl = np.zeros(kcells, dtype)
