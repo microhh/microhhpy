@@ -111,6 +111,7 @@ def parse_scalar(
     perturb_size,
     perturb_amplitude,
     perturb_max_height,
+    clip_at_zero,
     domain,
     kstart_buffer,
     output_dir,
@@ -147,6 +148,8 @@ def parse_scalar(
         Perturb 3D fields in blocks of certain size (equal in all dimensions).
     perturb_amplitude : dict
         Dictionary with perturbation amplitudes for each field.
+    clip_at_zero : list(str)
+        List of fields to clip at >= 0.
     domain : Domain instance
         Domain information.
     kstart_buffer : int
@@ -191,8 +194,12 @@ def parse_scalar(
     # Apply perturbation to the field.
     if name in perturb_amplitude.keys() and perturb_size > 0:
         block_perturb_field(fld_les, z_les, perturb_size, perturb_amplitude[name], perturb_max_height)
+
+    # Remove negative values from fields.
+    if name in clip_at_zero:
+        fld_les[fld_les < 0] = 0.
     
-    # Save 3D field without ghost cells in binary format as initial/restart file.
+    # Save 3D field without ghost cells i`n binary format as initial/restart file.
     if t == 0:
         save_3d_field(fld_les, name, name_suffix, n_pad, output_dir)
 
@@ -511,6 +518,7 @@ def create_era5_input(
         perturb_size=0,
         perturb_amplitude={},
         perturb_max_height=0,
+        clip_at_zero=(),
         name_suffix='',
         output_dir='.',
         ntasks=8,
@@ -618,6 +626,7 @@ def create_era5_input(
                     perturb_size,
                     perturb_amplitude,
                     perturb_max_height,
+                    clip_at_zero,
                     domain,
                     kstart_buffer,
                     output_dir,
