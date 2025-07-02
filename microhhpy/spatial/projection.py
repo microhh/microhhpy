@@ -106,3 +106,10 @@ class Projection:
         x -= self.x_offset
         y -= self.y_offset
         return x,y
+
+
+    def get_bbox(self):
+        """
+        Get absolute limits of domain, i.e. (lon.min(), lon.max(), lat.min(), lat.max()).
+        """
+        return (float(self.lon.min()), float(self.lon.max()), float(self.lat.min()), float(self.lat.max()))
