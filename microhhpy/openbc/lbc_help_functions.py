@@ -51,6 +51,8 @@ def create_lbc_ds(
     ---------
     fields : list of str
         Field names to include.
+    time : np.ndarray, shape (1,)
+        Time steps for the dataset (seconds since start of simulation).
     x : np.ndarray
         x-coordinates on full levels.
     y : np.ndarray
@@ -63,8 +65,6 @@ def create_lbc_ds(
         y-coordinates on half levels.
     zh : np.ndarray
         z-coordinates on half levels.
-    n_time : int
-        Number of time steps.
     n_ghost : int
         Number of ghost cells.
     n_sponge : int
@@ -201,6 +201,31 @@ def create_lbc_ds(
     ds.time.attrs['units'] = f'Seconds since start of simulation'
 
     return ds
+
+
+def lbc_ds_to_binary(ds, path, save_tsteps, dtype):
+    """
+    Save an Xarray Dataset with lateral boundary conditions to binary files for MicroHH.
+
+    Arguments:
+    ---------
+    ds : xr.Dataset
+        Dataset with boundary conditions.
+    path : str
+        Path to save the binary files.
+    save_tsteps : bool
+        If True, save each time step in a separate binary.
+    dtype : np.float32 or np.float64
+        Data type for the binary files.
+    """
+
+    for var in ds.data_vars:
+        if save_tsteps:
+            for t, time in enumerate(ds.time.values):
+                ds[var][t].values.astype(dtype).tofile(f'{path}/lbc_{var}.{time:07d}')
+        else:
+            ds[var].values.astype(dtype).tofile(f'{path}/lbc_{var}.0000000')
+
 
 
 def setup_lbc_slices(n_ghost, n_sponge):

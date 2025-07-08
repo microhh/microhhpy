@@ -39,7 +39,7 @@ from microhhpy.spatial import calc_vertical_grid_2nd
 from .global_help_functions import gaussian_filter_wrapper
 from .global_help_functions import correct_div_uv
 from .numba_kernels import block_perturb_field, blend_w_to_zero_at_sfc, calc_w_from_uv, check_divergence
-from .lbc_help_functions import create_lbc_ds, setup_lbc_slices
+from .lbc_help_functions import create_lbc_ds, setup_lbc_slices, lbc_ds_to_binary
 
 
 def setup_interpolations(
@@ -519,6 +519,7 @@ def create_era5_input(
         perturb_amplitude={},
         perturb_max_height=0,
         clip_at_zero=(),
+        save_individual_lbcs=False,
         name_suffix='',
         output_dir='.',
         ntasks=8,
@@ -697,7 +698,4 @@ def create_era5_input(
         """
         Write lateral boundary conditions to file.
         """
-        for fld in fields:
-            for loc in ['west', 'east', 'north', 'south']:
-                lbc_in = lbc_ds[f'{fld}_{loc}'].values.astype(dtype)
-                lbc_in.tofile(f'{output_dir}/lbc_{fld}_{loc}.0000000')
+        lbc_ds_to_binary(lbc_ds, output_dir, save_individual_lbcs, dtype)
