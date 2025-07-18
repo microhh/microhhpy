@@ -21,6 +21,7 @@
 #
 
 # Standard library
+import glob
 
 # Third-party.
 import xarray as xr
@@ -31,7 +32,8 @@ from microhhpy.logger import logger
 
 
 def regrid_les(
-        fields,
+        fields_3d,
+        fields_2d,
         xsize_in,
         ysize_in,
         z_in,
@@ -46,7 +48,6 @@ def regrid_les(
         jtot_out,
         xstart_out,
         ystart_out,
-        time,
         path_in,
         path_out,
         float_type,
@@ -54,13 +55,20 @@ def regrid_les(
         name_suffix=''):
     """
     Interpolate 3D LES fields from one LES grid to another and save in binary format.
-    
+
+    Time stamps can be:
+    - Single integer
+    - List or np.array of integers
+    - '*'
+
     NOTE: uses Xarray for interpolations, so not the fastest approach...
 
     Arguments:
     ----------
-    fields : list of str
-        Field names to interpolate.
+    fields_3d : dict with name : time(s)
+        3D fields to interpolate, with time stamps.
+    fields_2d : dict with name : time(s)
+        2D fields to interpolate, with time stamps.
     xsize_in : float
         Domain size x-direction input grid.
     ysize_in : float
@@ -142,30 +150,97 @@ def regrid_les(
     y_out += ystart_out
     yh_out += ystart_out
 
-    for field in fields:
-        logger.debug(f'Regridding {field}...')
 
+    def get_dims(field):
+        """
+        Get correct in- and output dims for staggered location of `field`.
+        """
         dim_x_in = xh_in if field == 'u' else x_in
         dim_x_out = xh_out if field == 'u' else x_out
 
         dim_y_in = yh_in if field == 'v' else y_in
         dim_y_out = yh_out if field == 'v' else y_out
 
-        # Remove top half level as it is not included in the binaries..
         dim_z_in = zh_in[:-1] if field == 'w' else z_in
         dim_z_out = zh_out[:-1] if field == 'w' else z_out
 
-        # Read binary and cast to correct shape.
-        data_in = np.fromfile(f'{path_in}/{field}.{time:07d}', dtype=float_type)
-        data_in = data_in.reshape((dim_z_in.size, jtot_in, itot_in))
+        return dim_x_in, dim_x_out, dim_y_in, dim_y_out, dim_z_in, dim_z_out
 
-        # Use Xarray for easy interpolations.
-        da_in = xr.DataArray(
-            data_in,
-            coords={"z": dim_z_in, "y": dim_y_in, "x": dim_x_in},
-            dims=["z", "y", "x"])
 
-        da_out = da_in.interp(x=dim_x_out, y=dim_y_out, z=dim_z_out, method=method)
+    def parse_times(field, times):
+        """
+        Parse input time options.
+        """
+        if isinstance(times, int):
+            times = [times]
+        elif isinstance(times, str) and times == '*':
+            # Find time stamps.
+            files = glob.glob(f'{path_in}/{field}.0*')
+            files.sort()
+            if len(files) == 0:
+                logger.critical(f'Found 0 files for field {field}!')
+            times = [int(x.split('.')[-1]) for x in files]
 
-        # Save as binary.
-        da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{time:07d}')
+        return times
+
+
+    """
+    Parse 3D fields.
+    """
+    for field, times in fields_3d.items():
+
+        # Get correct dimensions.
+        dim_x_in, dim_x_out, dim_y_in, dim_y_out, dim_z_in, dim_z_out = get_dims(field)
+
+        # Parse input time options.
+        times = parse_times(field, times)
+
+        logger.debug(f'Regridding {field} for time(s) {times}.')
+
+        for time in times:
+
+            # Read binary and cast to correct shape.
+            data_in = np.fromfile(f'{path_in}/{field}.{time:07d}', dtype=float_type)
+            data_in = data_in.reshape((dim_z_in.size, jtot_in, itot_in))
+
+            # Use Xarray for easy interpolations.
+            da_in = xr.DataArray(
+                data_in,
+                coords={"z": dim_z_in, "y": dim_y_in, "x": dim_x_in},
+                dims=["z", "y", "x"])
+
+            da_out = da_in.interp(x=dim_x_out, y=dim_y_out, z=dim_z_out, method=method)
+
+            # Save as binary.
+            da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{time:07d}')
+
+
+    """
+    Parse 2D fields.
+    """
+    for field, times in fields_2d.items():
+
+        # Get correct dimensions.
+        dim_x_in, dim_x_out, dim_y_in, dim_y_out, _, _ = get_dims(field)
+
+        # Parse input time options.
+        times = parse_times(field, times)
+
+        logger.debug(f'Regridding {field} for time(s) {times}.')
+
+        for time in times:
+
+            # Read binary and cast to correct shape.
+            data_in = np.fromfile(f'{path_in}/{field}.{time:07d}', dtype=float_type)
+            data_in = data_in.reshape((jtot_in, itot_in))
+
+            # Use Xarray for easy interpolations.
+            da_in = xr.DataArray(
+                data_in,
+                coords={"y": dim_y_in, "x": dim_x_in},
+                dims=["y", "x"])
+
+            da_out = da_in.interp(x=dim_x_out, y=dim_y_out, method=method)
+
+            # Save as binary.
+            da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{time:07d}')
