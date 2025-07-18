@@ -519,7 +519,6 @@ def create_era5_input(
         perturb_amplitude={},
         perturb_max_height=0,
         clip_at_zero=(),
-        save_individual_lbcs=False,
         name_suffix='',
         output_dir='.',
         ntasks=8,
@@ -698,4 +697,4 @@ def create_era5_input(
         """
         Write lateral boundary conditions to file.
         """
-        lbc_ds_to_binary(lbc_ds, output_dir, save_individual_lbcs, dtype)
+        lbc_ds_to_binary(lbc_ds, output_dir, dtype)

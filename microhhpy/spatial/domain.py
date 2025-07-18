@@ -39,6 +39,7 @@ class Domain:
             jtot,
             n_ghost,
             n_sponge,
+            lbc_freq,
             xstart_in_parent=None,
             ystart_in_parent=None,
             parent=None,
@@ -69,6 +70,8 @@ class Domain:
             Number of horizontal ghost cells.
         n_sponge : int
             Number of lateral sponge cells.
+        lbc_freq : int of float
+            Time interval (sec) of lateral boundary updates.
         xstart_in_parent: float, optional
             x-offset in parent domain.
         ystart_in_parent: float, optional
@@ -107,6 +110,8 @@ class Domain:
         self.n_sponge = n_sponge
         self.n_pad = self.n_ghost + 1
         self.n_lbc = self.n_pad + n_sponge
+
+        self.lbc_freq = lbc_freq
 
         self.parent = parent
         self.child = child

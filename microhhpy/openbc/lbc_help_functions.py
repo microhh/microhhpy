@@ -203,7 +203,7 @@ def create_lbc_ds(
     return ds
 
 
-def lbc_ds_to_binary(ds, path, save_tsteps, dtype):
+def lbc_ds_to_binary(ds, path, dtype):
     """
     Save an Xarray Dataset with lateral boundary conditions to binary files for MicroHH.
 
@@ -220,11 +220,11 @@ def lbc_ds_to_binary(ds, path, save_tsteps, dtype):
     """
 
     for var in ds.data_vars:
-        if save_tsteps:
-            for t, time in enumerate(ds.time.values):
-                ds[var][t].values.astype(dtype).tofile(f'{path}/lbc_{var}.{time:07d}')
-        else:
-            ds[var].values.astype(dtype).tofile(f'{path}/lbc_{var}.0000000')
+        #if save_tsteps:
+        for t, time in enumerate(ds.time.values):
+            ds[var][t].values.astype(dtype).tofile(f'{path}/lbc_{var}.{time:07d}')
+        #else:
+        #    ds[var].values.astype(dtype).tofile(f'{path}/lbc_{var}.0000000')
 
 
 
