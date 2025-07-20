@@ -265,14 +265,27 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=Non
         Plot domains on map in lon/lat projection.
         """
 
-        p0 = domains[0].proj
+        # Find max extent domains.
+        lon_min = 1e9
+        lon_max = -1e9
 
-        margin = 0.1*(p0.lon.max() - p0.lon.min())
-        extent = [p0.lon.min()-margin, p0.lon.max()+margin, p0.lat.min()-margin, p0.lat.max()+margin]
+        lat_min = 1e9
+        lat_max = -1e9
+
+        for i,d in enumerate(domains):
+            lon_min = min(lon_min, d.proj.lon.min())
+            lon_max = max(lon_max, d.proj.lon.max())
+
+            lat_min = min(lat_min, d.proj.lat.min())
+            lat_max = max(lat_max, d.proj.lat.max())
+
+        margin = 0.05 * (lon_max - lon_min)
+
+        extent = [lon_min-margin, lon_max+margin, lat_min-margin, lat_max+margin]
 
         proj = ccrs.LambertConformal(
-            central_longitude=p0.central_lon,
-            central_latitude=p0.central_lat)
+            central_longitude=0.5*(lon_min + lon_max),
+            central_latitude=0.5*(lat_min + lat_max))
 
         plt.figure(layout='tight')
         ax = plt.subplot(projection=proj)
