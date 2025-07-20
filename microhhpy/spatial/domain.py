@@ -232,7 +232,7 @@ class Domain:
             self.jend_pad = self.jtot + self.n_pad
 
 
-def plot_domains(domains, use_projection=False, scatter_lonlat=False):
+def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=None):
     """
     Plot position of all domains.
 
@@ -257,6 +257,9 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False):
     import cartopy.io.img_tiles as cimgt
     import cartopy.feature as cfeature
 
+    if labels is None:
+        labels = [f'#{x}' for x in range(len(domains))]
+
     if use_projection:
         """
         Plot domains on map in lon/lat projection.
@@ -275,7 +278,7 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False):
         ax = plt.subplot(projection=proj)
 
         for i,d in enumerate(domains):
-            ax.plot(d.proj.bbox_lon, d.proj.bbox_lat, label=f'#{i}', transform=ccrs.PlateCarree())
+            ax.plot(d.proj.bbox_lon, d.proj.bbox_lat, label=labels[i], transform=ccrs.PlateCarree())
 
             if scatter_lonlat:
                 plt.scatter(d.proj.lon_h, d.proj.lat_h, s=1, transform=ccrs.PlateCarree())
