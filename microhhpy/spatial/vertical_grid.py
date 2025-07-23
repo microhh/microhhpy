@@ -106,3 +106,49 @@ def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
         dzi=dzi,
         dzhi=dzhi
     )
+
+
+def refine_grid_for_nesting(z, zh, ratio):
+    """
+    1. Refine vertical grid by dividing each full level height confined by
+       `zh[k]-zh[k+1]` into `ratio` equal steps.
+    2. Find full level heights which linearly interpolated result in the half level
+       heights from the previous step.
+
+    Arguments:
+    ---------
+    z : np.ndarray, shape(1,)
+        Input full level heights.
+    zh : np.ndarray, shape(1,)
+        Input half level heights.
+    ratio : int
+        Refinement ratio.
+
+    Returns:
+    -------
+    zn : np.ndarray, shape (1,)
+        Output full level heights.
+    zhn : np.ndarray, shape (1,)
+        Output half level heights.
+    """
+    if ratio == 1:
+        return z, zh
+    else:
+        ktot = z.size
+        ktot_n = ktot * ratio
+
+        # Calculate new half level heights.
+        zhn = np.zeros(ktot_n + 1)
+        for k in range(ktot):
+            dzh = (zh[k+1] - zh[k]) / ratio
+            for s in range(ratio):
+                zhn[k*ratio+s] = zh[k] + s * dzh;
+        zhn[-1] = zh[-1]
+
+        # Reconstruct full level heights.
+        zn = np.zeros(ktot_n)
+        zn[0] = 0.5 * (zhn[0] + zhn[1])
+        for k in range(1, ktot_n):
+            zn[k] = 2 * zhn[k] - zn[k-1]
+
+        return zn, zhn

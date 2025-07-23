@@ -51,7 +51,7 @@ def regrid_les(
         path_in,
         path_out,
         float_type,
-        method='nearest',
+        #method='nearest',
         name_suffix=''):
     """
     Interpolate 3D LES fields from one LES grid to another and save in binary format.
@@ -107,8 +107,8 @@ def regrid_les(
         Path to write interpolated binary files.
     float_type : np.float32 or np.float64
         Floating point precision.
-    method : string
-        Interpolation method, see https://docs.xarray.dev/en/latest/generated/xarray.DataArray.interp.html for options.
+    #method : string
+    #    Interpolation method, see https://docs.xarray.dev/en/latest/generated/xarray.DataArray.interp.html for options.
     name_suffix : string
         Save output fields with `name_suffix` appended (e.g. `thl_somename.0000000`)
 
@@ -209,7 +209,7 @@ def regrid_les(
                 coords={"z": dim_z_in, "y": dim_y_in, "x": dim_x_in},
                 dims=["z", "y", "x"])
 
-            da_out = da_in.interp(x=dim_x_out, y=dim_y_out, z=dim_z_out, method=method)
+            da_out = da_in.interp(x=dim_x_out, y=dim_y_out, z=dim_z_out, method='nearest', kwargs={'fill_value': 'extrapolate'})
 
             # Save as binary.
             da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{time:07d}')
@@ -240,7 +240,7 @@ def regrid_les(
                 coords={"y": dim_y_in, "x": dim_x_in},
                 dims=["y", "x"])
 
-            da_out = da_in.interp(x=dim_x_out, y=dim_y_out, method=method)
+            da_out = da_in.interp(x=dim_x_out, y=dim_y_out, method='nearest', kwargs={'fill_value': 'extrapolate'})
 
             # Save as binary.
             da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{time:07d}')
