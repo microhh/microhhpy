@@ -37,9 +37,9 @@ class Domain:
             ysize,
             itot,
             jtot,
-            n_ghost,
-            n_sponge,
-            lbc_freq,
+            n_ghost=None,
+            n_sponge=None,
+            lbc_freq=None,
             xstart_in_parent=None,
             ystart_in_parent=None,
             parent=None,
@@ -48,7 +48,8 @@ class Domain:
             lon=None,
             lat=None,
             anchor='center',
-            proj_str=None):
+            proj_str=None,
+            work_dir=''):
         """
         Domain and nesting specification of single domain.
 
@@ -66,30 +67,32 @@ class Domain:
             Number of grid points in x-direction.
         jtot : int
             Number of grid points in y-direction.
-        n_ghost : int
+        n_ghost : int, optional
             Number of horizontal ghost cells.
-        n_sponge : int
+        n_sponge : int, optional
             Number of lateral sponge cells.
-        lbc_freq : int of float
+        lbc_freq : int of float, optional
             Time interval (sec) of lateral boundary updates.
-        xstart_in_parent: float, optional
+        xstart_in_parent: float, optional, optional
             x-offset in parent domain.
-        ystart_in_parent: float, optional
+        ystart_in_parent: float, optional, optional
             y-offset in parent domain.
-        parent : `Domain` instance, optional
+        parent : `Domain` instance, optional, optional
             Parent of current domain.
-        child : `Domain` instance, optional
+        child : `Domain` instance, optional, optional
             Child of current domain.
-        center_in_parent : bool, optional
+        center_in_parent : bool, optional, optional
             Center current domain in parent domain.
-        lon : float, optional
+        lon : float, optional, optional
             Longitude of domain (degrees), only for outer domain.
-        lat : float, optional
+        lat : float, optional, optional
             Latitude of domain (degrees), only for outer domain.
         anchor : str, default: 'center'
             Anchor point of (`lon, lat`), ∈ ('center', 'southwest')
         proj_str : str, optional
             Proj.4 / pyproj projection string for lon/lat <-> x/y transformations.
+        work_dir : str, optional
+            Work directory/path of experiment.
 
         Returns:
         --------
@@ -117,6 +120,7 @@ class Domain:
         self.child = child
 
         self.proj_str = proj_str
+        self.work_dir = work_dir
 
         self.dx = xsize / itot
         self.dy = ysize / jtot
@@ -291,6 +295,7 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=Non
         ax = plt.subplot(projection=proj)
 
         for i,d in enumerate(domains):
+
             ax.plot(d.proj.bbox_lon, d.proj.bbox_lat, label=labels[i], transform=ccrs.PlateCarree())
 
             if scatter_lonlat:
