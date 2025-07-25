@@ -83,8 +83,20 @@ class Projection:
         self.lon_v, self.lat_v = self.to_lonlat(self.x, self.yh, meshgrid=True)
 
         # Bounding box.
-        x = np.array([0, self.xsize, self.xsize, 0, 0])
-        y = np.array([0, 0, self.ysize, self.ysize, 0])
+        # Do not just plot the corners, this looks a bit strange on large domain.
+        n_bbox = 32
+        xx = np.linspace(0, self.xsize, n_bbox)
+        yy = np.linspace(0, self.ysize, n_bbox)
+        x0 = np.zeros(n_bbox)
+        x1 = np.ones(n_bbox) * xsize
+        y0 = np.zeros(n_bbox)
+        y1 = np.ones(n_bbox) * ysize
+
+        x = np.concatenate([xx, x1, xx[::-1], x0])
+        y = np.concatenate([y0, yy, y1, yy[::-1]])
+
+        #x = np.array([0, self.xsize, self.xsize, 0, 0])
+        #y = np.array([0, 0, self.ysize, self.ysize, 0])
 
         self.bbox_lon, self.bbox_lat = self.to_lonlat(x, y, meshgrid=False)
 
