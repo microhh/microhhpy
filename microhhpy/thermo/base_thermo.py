@@ -136,14 +136,17 @@ def dqsatdT_liq(p, T):
     den = p - esat_liq(T)*(1.-cst.ep)
     return (cst.ep/den - (1. + cst.ep)*cst.ep*esat_liq(T)/pow2(den)) * cst.Lv*esat_liq(T) / (cst.Rv*pow2(T))
 
+
 @njit
 def dqsatdT_ice(p, T):
     den = p - esat_ice(T)*(1.-cst.ep)
     return (cst.ep/den + (1. - cst.ep)*cst.ep*esat_ice(T)/pow2(den)) * cst.Ls*esat_ice(T) / (cst.Rv*pow2(T))
 
+
 @njit
 def water_fraction(T):
     return max(0., min((T - 233.15) / (cst.T0 - 233.15), 1.))
+
 
 @njit
 def qsat(p, T):
@@ -165,10 +168,12 @@ def qsat(p, T):
     alpha = water_fraction(T)
     return alpha*qsat_liq(p, T) + (1.-alpha)*qsat_ice(p, T)
 
+
 @njit
 def virtual_temperature(exn, thl, qt, ql, qi):
     th = thl + cst.Lv*ql/(cst.cp*exn) + cst.Ls*qi/(cst.cp*exn)
     return th * (1. - (1. - cst.Rv/cst.Rd)*qt - cst.Rv/cst.Rd*(ql+qi));
+
 
 @njit
 def sat_adjust(thl, qt, p, use_ice=True):
