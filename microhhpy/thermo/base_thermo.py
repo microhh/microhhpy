@@ -145,7 +145,7 @@ def dqsatdT_ice(p, T):
 
 @njit
 def water_fraction(T):
-    return max(0., min((T - 233.15) / (cst.T0 - 233.15), 1.))
+    return np.maximum(0., np.minimum((T - 233.15) / (cst.T0 - 233.15), 1.))
 
 
 @njit
