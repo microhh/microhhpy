@@ -43,8 +43,8 @@ from .lbc_help_functions import create_lbc_ds, setup_lbc_slices, lbc_ds_to_binar
 
 
 def setup_interpolations(
-        lon_era,
-        lat_era,
+        lon_in,
+        lat_in,
         proj_pad,
         dtype):
     """
@@ -53,10 +53,10 @@ def setup_interpolations(
 
     Arguments:
     ---------
-    lon_era : np.ndarray, shape (2,)
-        Longitudes of ERA5 grid points.
-    lat_era : np.ndarray, shape (2,)
-        Latitudes of ERA5 grid points.
+    lon_in : np.ndarray, shape (2,)
+        Longitudes of grid points.
+    lat_in : np.ndarray, shape (2,)
+        Latitudes of grid points.
     proj_pad : microhhpy.spatial.Projection instance
         Spatial projection.
     dtype : numpy float type, optional
@@ -68,13 +68,13 @@ def setup_interpolations(
     """
 
     if_u = Rect_to_curv_interpolation_factors(
-        lon_era, lat_era, proj_pad.lon_u, proj_pad.lat_u, dtype)
+        lon_in, lat_in, proj_pad.lon_u, proj_pad.lat_u, dtype)
 
     if_v = Rect_to_curv_interpolation_factors(
-        lon_era, lat_era, proj_pad.lon_v, proj_pad.lat_v, dtype)
+        lon_in, lat_in, proj_pad.lon_v, proj_pad.lat_v, dtype)
 
     if_s = Rect_to_curv_interpolation_factors(
-        lon_era, lat_era, proj_pad.lon, proj_pad.lat, dtype)
+        lon_in, lat_in, proj_pad.lon, proj_pad.lat, dtype)
 
     return if_u, if_v, if_s
 
@@ -102,8 +102,8 @@ def parse_scalar(
     name_suffix,
     t,
     time,
-    fld_era,
-    z_era,
+    fld_in,
+    z_in,
     z_les,
     ip_fac,
     lbc_slices,
@@ -132,10 +132,10 @@ def parse_scalar(
         Timestep index.
     time : int
         Time in seconds since start of experiment.
-    fld_era : np.ndarray, shape (3,)
-        Scalar field from ERA5.
-    z_era : np.ndarray, shape (3,)
-        Model level heights ERA5.
+    fld_in : np.ndarray, shape (3,)
+        Scalar field.
+    z_in : np.ndarray, shape (3,)
+        Model level heights.
     z_les : np.ndarray, shape (1,)
         Full level heights LES.
     ip_fac : `Rect_to_curv_interpolation_factors` instance.
@@ -172,21 +172,21 @@ def parse_scalar(
     fld_les = np.empty((z_les.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
 
     # Lazily load data in case xarray data is provided.
-    if isinstance(fld_era, xr.DataArray):
-        fld_era = fld_era.values
+    if isinstance(fld_in, xr.DataArray):
+        fld_in = fld_in.values
 
-    # Tri-linear interpolation from ERA5 to LES grid.
+    # Tri-linear interpolation from host to LES grid.
     interpolate_rect_to_curv(
         fld_les,
-        fld_era,
+        fld_in,
         ip_fac.il,
         ip_fac.jl,
         ip_fac.fx,
         ip_fac.fy,
         z_les,
-        z_era,
+        z_in,
         dtype)
-    
+
     # Apply Gaussian filter.
     if sigma_n > 0:
         gaussian_filter_wrapper(fld_les, sigma_n)
@@ -198,7 +198,7 @@ def parse_scalar(
     # Remove negative values from fields.
     if name in clip_at_zero:
         fld_les[fld_les < 0] = 0.
-    
+
     # Save 3D field without ghost cells i`n binary format as initial/restart file.
     if t == 0:
         save_3d_field(fld_les, name, name_suffix, n_pad, output_dir)
@@ -217,10 +217,10 @@ def parse_momentum(
     name_suffix,
     t,
     time,
-    u_era,
-    v_era,
-    w_era,
-    z_era,
+    u_in,
+    v_in,
+    w_in,
+    z_in,
     z,
     zh,
     dz,
@@ -257,14 +257,14 @@ def parse_momentum(
         Timestep index.
     time : int
         Time in seconds since start of experiment.
-    u_era : np.ndarray, shape (3,)
-        u-field from ERA5.
-    v_era : np.ndarray, shape (3,)
-        v-field from ERA5.
-    w_era : np.ndarray, shape (3,)
-        w-field from ERA5.
-    z_era : np.ndarray, shape (3,)
-        Model level heights ERA5.
+    u_in : np.ndarray, shape (3,)
+        u-field from host model.
+    v_in : np.ndarray, shape (3,)
+        v-field from host model.
+    w_in : np.ndarray, shape (3,)
+        w-field from host model.
+    z_in : np.ndarray, shape (3,)
+        Model level heights host model.
     z : np.ndarray, shape (1,)
         Full level heights LES.
     zh : np.ndarray, shape (1,)
@@ -313,54 +313,54 @@ def parse_momentum(
     w = np.empty((zh.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
 
     # Lazily load data in case xarray data is provided.
-    if isinstance(u_era, xr.DataArray):
-        u_era = u_era.values
-    if isinstance(v_era, xr.DataArray):
-        v_era = v_era.values
-    if isinstance(w_era, xr.DataArray):
-        w_era = w_era.values
+    if isinstance(u_in, xr.DataArray):
+        u_in = u_in.values
+    if isinstance(v_in, xr.DataArray):
+        v_in = v_in.values
+    if isinstance(w_in, xr.DataArray):
+        w_in = w_in.values
 
-    # Tri-linear interpolation from ERA5 to LES grid.
+    # Tri-linear interpolation from host to LES grid.
     interpolate_rect_to_curv(
         u,
-        u_era,
+        u_in,
         ip_u.il,
         ip_u.jl,
         ip_u.fx,
         ip_u.fy,
         z,
-        z_era,
+        z_in,
         dtype)
 
     interpolate_rect_to_curv(
         v,
-        v_era,
+        v_in,
         ip_v.il,
         ip_v.jl,
         ip_v.fx,
         ip_v.fy,
         z,
-        z_era,
+        z_in,
         dtype)
 
     interpolate_rect_to_curv(
         w,
-        w_era,
+        w_in,
         ip_s.il,
         ip_s.jl,
         ip_s.fx,
         ip_s.fy,
         zh,
-        z_era,
+        z_in,
         dtype)
-    
+
     # Apply Gaussian filter.
     if sigma_n > 0:
         gaussian_filter_wrapper(u, sigma_n)
         gaussian_filter_wrapper(v, sigma_n)
         gaussian_filter_wrapper(w, sigma_n)
 
-    # ERA5 vertical velocity `w_era` sometimes has strange profiles near surface.
+    # Host model vertical velocity `w_in` sometimes has strange profiles near surface.
     # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
     blend_w_to_zero_at_sfc(w, zh, zmax=500)
 
@@ -397,13 +397,13 @@ def parse_momentum(
         domain.jend_pad,
         dz.size)
 
-    # Check! 
+    # Check!
     div_max, i, j, k = check_divergence(
         u,
         v,
         w,
         rho,
-        rhoh, 
+        rhoh,
         domain.dxi,
         domain.dyi,
         dzi,
@@ -443,8 +443,8 @@ def parse_momentum(
 
 
 def parse_pressure(
-        p_era,
-        z_era,
+        p_in,
+        z_in,
         zsize,
         ip_s,
         domain,
@@ -452,21 +452,21 @@ def parse_pressure(
         output_dir,
         dtype):
     """
-    Interpolate 3D pressure field from ERA5 to top-of-domain (TOD) in LES.
+    Interpolate 3D pressure field from host model to top-of-domain (TOD) in LES.
 
     Arguments:
     ---------
-    p_era : np.ndarray, shape (3,)
-        Pressure field from ERA5.
-    z_era : np.ndarray, shape (3,)
-        Model level heights ERA5.
+    p_in : np.ndarray, shape (3,)
+        Pressure field.
+    z_in : np.ndarray, shape (3,)
+        Model level heights.
     zsize : float
         Domain height LES.
     ip_s : `Rect_to_curv_interpolation_factors` instance
         Interpolation factors at scalar location.
     domain : Domain instance
         Domain information.
-    time : int 
+    time : int
         Time in seconds since start of experiment.
     output_dir : str
         Output directory files.
@@ -482,18 +482,18 @@ def parse_pressure(
     p_les = np.empty((domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
 
     # Lazily load data in case xarray data is provided.
-    if isinstance(p_era, xr.DataArray):
-        p_era = p_era.values
+    if isinstance(p_in, xr.DataArray):
+        p_in = p_in.values
 
     interpolate_rect_to_curv(
         p_les,
-        p_era,
+        p_in,
         ip_s.il,
         ip_s.jl,
         ip_s.fx,
         ip_s.fy,
         zsize,
-        z_era,
+        z_in,
         dtype)
 
     # Save pressure at top of domain without ghost cells.
@@ -511,12 +511,12 @@ def create_era5_input(*args, **kwargs):
 
 
 def create_input_from_regular_latlon(
-        fields_era,
-        lon_era,
-        lat_era,
-        z_era,
-        p_era,
-        time_era,
+        fields_in,
+        lon_in,
+        lat_in,
+        z_in,
+        p_in,
+        time_in,
         z,
         zsize,
         zstart_buffer,
@@ -533,23 +533,76 @@ def create_input_from_regular_latlon(
         ntasks=8,
         dtype=np.float64):
     """
-    Generate all required MicroHH input from ERA5.
-    
+    Generate all required MicroHH input from large-scale models
+    using a regular lat-lon grid (i.e. a grid where lat/lon are 1D arrays).
+
+    Fields that are created, some optional:
     1. Initial fields.
     2. Lateral boundary conditions.
-    3. ...
+    3. Upper boundary conditions (w).
+    4. Sponge layer.
+    5. Top-of-domain hydrostatic pressure.
+
+    Parameters
+    ----------
+    fields_in : dict
+        Dictionary containing 4D fields from host model.
+    lon_in : np.ndarray, shape (1,)
+        Input longitude coordinates in degrees.
+    lat_in : np.ndarray, shape (1,)
+        Input latitude coordinates in degrees.
+    z_in : np.ndarray, shape (4,)
+        Input model level heights in meters.
+    p_in : np.ndarray, shape (4,)
+        Input pressure levels in Pa.
+    time_in : np.ndarray, shape (1,)
+        Input time coordinates in seconds.
+    z : np.ndarray, shape (1,)
+        LES full level heights in meters.
+    zsize : float
+        Vertical domain size in meters.
+    zstart_buffer : float
+        Vertical start height buffer in meters.
+    rho : np.ndarray, shape (1,)
+        Base state density profile.
+    rhoh : np.ndarray, shape (1,)
+        Base state density at half levels.
+    domain : Domain instance
+        Domain / projection information.
+    sigma_h : float
+        Width of Gaussian smoothing filter kernel (total size is +/- 3 sigma)
+    perturb_size : int, optional
+        Perturb 3D fields in blocks of certain size. Default is 0.
+    perturb_amplitude : dict, optional
+        Dictionary with perturbation amplitudes for each field. Default is {}.
+    perturb_max_height : float, optional
+        Maximum height for perturbations in meters. Default is 0.
+    clip_at_zero : tuple, optional
+        Tuple of field names to clip at >= 0. Default is ().
+    name_suffix : str, optional
+        Suffix to append to output variable names. Default is ''.
+    output_dir : str, optional
+        Output directory path. Default is '.'.
+    ntasks : int, optional
+        Number of parallel tasks. Default is 8.
+    dtype : np.float32 or np.float64, optional
+        Floating point precision. Default is np.float64.
+
+    Returns
+    -------
+    None
     """
-    logger.info(f'Creating MicroHH input from ERA5 data in {output_dir}.')
+    logger.info(f'Creating MicroHH input in {output_dir}.')
 
     # Short-cuts.
     proj_pad = domain.proj_pad
-    time_era = time_era.astype(np.int32)
+    time_in = time_in.astype(np.int32)
 
     # Setup vertical grid. Definition has to perfectly match MicroHH's vertical grid to get divergence free fields.
     gd = calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=dtype)
 
     # Setup horizontal interpolations (indexes and factors).
-    ip_u, ip_v, ip_s = setup_interpolations(lon_era, lat_era, proj_pad, dtype=dtype)
+    ip_u, ip_v, ip_s = setup_interpolations(lon_in, lat_in, proj_pad, dtype=dtype)
 
     # Setup spatial filtering.
     sigma_n = int(np.ceil(sigma_h / proj_pad.dx))
@@ -562,8 +615,8 @@ def create_input_from_regular_latlon(
 
     # Setup lateral boundary fields.
     lbc_ds = create_lbc_ds(
-        list(fields_era.keys()),
-        time_era,
+        list(fields_in.keys()),
+        time_in,
         domain.x,
         domain.y,
         gd['z'],
@@ -585,14 +638,14 @@ def create_input_from_regular_latlon(
     Interpolate 3D pressure to domain top LES.
     """
     args = []
-    for t in range(time_era.size):
+    for t in range(time_in.size):
         args.append(
-            (p_era[t,:,:,:],
-             z_era[t,:,:,:],
+            (p_in[t,:,:,:],
+             z_in[t,:,:,:],
              gd['zsize'],
              ip_s,
              domain,
-             time_era[t],
+             time_in[t],
              output_dir,
              dtype)
         )
@@ -606,7 +659,7 @@ def create_input_from_regular_latlon(
         results = list(executor.map(parse_pressure_wrapper, args))
 
     tock = datetime.now()
-    logger.info(f'Created TOD pressure input from ERA5 in {tock - tick}.')
+    logger.info(f'Created TOD pressure input in {tock - tick}.')
 
 
     """
@@ -615,19 +668,19 @@ def create_input_from_regular_latlon(
     """
     # Run in parallel with ThreadPoolExecutor for ~10x speed-up.
     args = []
-    for name, fld_era in fields_era.items():
+    for name, fld_in in fields_in.items():
         if name not in ('u', 'v', 'w'):
             fields.append(name)
 
-            for t in range(time_era.size):
+            for t in range(time_in.size):
                 args.append((
                     lbc_ds,
                     name,
                     name_suffix,
                     t,
-                    time_era[t],
-                    fld_era[t,:,:,:],
-                    z_era[t,:,:,:],
+                    time_in[t],
+                    fld_in[t,:,:,:],
+                    z_in[t,:,:,:],
                     gd['z'],
                     ip_s,
                     lbc_slices,
@@ -650,30 +703,30 @@ def create_input_from_regular_latlon(
         results = list(executor.map(parse_scalar_wrapper, args))
 
     tock = datetime.now()
-    logger.info(f'Created scalar input from ERA5 in {tock - tick}.')
+    logger.info(f'Created scalar input in {tock - tick}.')
 
 
     """
     Parse momentum fields.
     This is treated separately, because it requires some corrections to ensure that the fields are divergence free.
     """
-    if any(fld not in fields_era for fld in ('u', 'v', 'w')):
+    if any(fld not in fields_in for fld in ('u', 'v', 'w')):
         logger.warning('One or more momentum fields missing! Skipping momentum...')
     else:
         fields.extend(['u', 'v', 'w'])
 
         # Run in parallel with ThreadPoolExecutor for ~10x speed-up.
         args = []
-        for t in range(time_era.size):
+        for t in range(time_in.size):
             args.append((
                 lbc_ds,
                 name_suffix,
                 t,
-                time_era[t],
-                fields_era['u'][t,:,:,:],
-                fields_era['v'][t,:,:,:],
-                fields_era['w'][t,:,:,:],
-                z_era[t,:,:,:],
+                time_in[t],
+                fields_in['u'][t,:,:,:],
+                fields_in['v'][t,:,:,:],
+                fields_in['w'][t,:,:,:],
+                z_in[t,:,:,:],
                 gd['z'],
                 gd['zh'],
                 gd['dz'],
@@ -700,7 +753,7 @@ def create_input_from_regular_latlon(
             results = list(executor.map(parse_momentum_wrapper, args))
 
         tock = datetime.now()
-        logger.info(f'Created momentum input from ERA5 in {tock - tick}.')
+        logger.info(f'Created momentum input in {tock - tick}.')
 
 
         """
