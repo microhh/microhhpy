@@ -501,7 +501,16 @@ def parse_pressure(
     p_les[n:-n, n:-n].tofile(f'{output_dir}/phydro_tod.{time:07d}')
 
 
-def create_era5_input(
+def create_era5_input(*args, **kwargs):
+    """
+    Wrapper to not break old(er) code.
+    """
+    logger.warning('Function `create_era5_input()` has been renamed to `create_input_from_regular_latlon()`.')
+    logger.warning('You can safely rename the function to its new name.')
+    create_input_from_regular_latlon(*args, **kwargs)
+
+
+def create_input_from_regular_latlon(
         fields_era,
         lon_era,
         lat_era,
@@ -698,3 +707,5 @@ def create_era5_input(
         Write lateral boundary conditions to file.
         """
         lbc_ds_to_binary(lbc_ds, output_dir, dtype)
+
+
