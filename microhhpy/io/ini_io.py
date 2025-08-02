@@ -35,7 +35,11 @@ def _int_or_float_or_str(value):
     Helper function: convert a string to int/float/str
     """
     try:
-        if value == 'None':
+        if value == 'true':
+            return True
+        elif value == 'false':
+            return False
+        elif value == 'None':
             return None
         elif ('.' in value):
             return float(value)

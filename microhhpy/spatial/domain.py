@@ -262,7 +262,10 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=Non
     import cartopy.feature as cfeature
 
     if labels is None:
-        labels = [f'#{x}' for x in range(len(domains))]
+        labels = []
+        for n,dom in enumerate(domains):
+            labels.append(f'#{n}: {dom.xsize/1000}x{dom.ysize/1000} km @ {dom.dx} m.')
+
 
     if use_projection:
         """

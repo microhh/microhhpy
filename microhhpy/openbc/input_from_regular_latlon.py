@@ -637,29 +637,30 @@ def create_input_from_regular_latlon(
     """
     Interpolate 3D pressure to domain top LES.
     """
-    args = []
-    for t in range(time_in.size):
-        args.append(
-            (p_in[t,:,:,:],
-             z_in[t,:,:,:],
-             gd['zsize'],
-             ip_s,
-             domain,
-             time_in[t],
-             output_dir,
-             dtype)
-        )
+    if p_in is not None:
+        args = []
+        for t in range(time_in.size):
+            args.append(
+                (p_in[t,:,:,:],
+                 z_in[t,:,:,:],
+                 gd['zsize'],
+                 ip_s,
+                 domain,
+                 time_in[t],
+                 output_dir,
+                 dtype)
+            )
 
-    def parse_pressure_wrapper(args):
-        return parse_pressure(*args)
+        def parse_pressure_wrapper(args):
+            return parse_pressure(*args)
 
-    tick = datetime.now()
+        tick = datetime.now()
 
-    with ThreadPoolExecutor(max_workers=ntasks) as executor:
-        results = list(executor.map(parse_pressure_wrapper, args))
+        with ThreadPoolExecutor(max_workers=ntasks) as executor:
+            results = list(executor.map(parse_pressure_wrapper, args))
 
-    tock = datetime.now()
-    logger.info(f'Created TOD pressure input in {tock - tick}.')
+        tock = datetime.now()
+        logger.info(f'Created TOD pressure input in {tock - tick}.')
 
 
     """
@@ -711,7 +712,7 @@ def create_input_from_regular_latlon(
     This is treated separately, because it requires some corrections to ensure that the fields are divergence free.
     """
     if any(fld not in fields_in for fld in ('u', 'v', 'w')):
-        logger.warning('One or more momentum fields missing! Skipping momentum...')
+        logger.debug('One or more momentum fields missing! Skipping momentum...')
     else:
         fields.extend(['u', 'v', 'w'])
 
@@ -756,9 +757,7 @@ def create_input_from_regular_latlon(
         logger.info(f'Created momentum input in {tock - tick}.')
 
 
-        """
-        Write lateral boundary conditions to file.
-        """
-        lbc_ds_to_binary(lbc_ds, output_dir, dtype)
-
-
+    """
+    Write lateral boundary conditions to file.
+    """
+    lbc_ds_to_binary(lbc_ds, output_dir, dtype)
