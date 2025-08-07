@@ -35,9 +35,9 @@ def _int_or_float_or_str(value):
     Helper function: convert a string to int/float/str
     """
     try:
-        if value == 'true':
+        if value == 'true' or value == 'True':
             return True
-        elif value == 'false':
+        elif value == 'false' or value == 'False':
             return False
         elif value == 'None':
             return None
@@ -129,7 +129,7 @@ def save_ini(ini, ini_file, clobber=True):
                         value = [str(v) for v in value]
                     value = ','.join(value)
                 elif isinstance(value, bool):
-                    value = '1' if value else '0'
+                    value = 'true' if value else 'false'
                 f.write('{}={}\n'.format(variable, value))
             f.write('\n')
 
