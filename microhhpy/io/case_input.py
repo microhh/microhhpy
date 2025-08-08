@@ -25,6 +25,7 @@ import os
 
 # Third-party.
 import netCDF4 as nc4
+import xarray as xr
 import numpy as np
 
 # Local library
@@ -44,9 +45,42 @@ def save_case_input(
         soil=None,
         source=None,
         trajectories=None,
-        path=None):
+        output_dir=''):
     """
-    Function for writing the MicroHH NetCDF input from set of {variable: values} dictionaries.
+    Create a MicroHH NetCDF input file from dictionaries containing variable data.
+
+    Arguments:
+    ----------
+    case_name : str
+        Name of the simulation case.
+    init_profiles : dict
+        Initial atmospheric profiles. Must contain 'z' key.
+    tdep_surface : dict, optional
+        Time-dependent surface variables. Must contain 'time_surface' key.
+    tdep_ls : dict, optional
+        Time-dependent large-scale variables. Must contain 'time_ls' key.
+    tdep_source : dict, optional
+        Time-dependent source terms. Must contain 'time_source' key.
+    tdep_chem : dict, optional
+        Time-dependent chemistry variables. Must contain 'time_chem' key.
+    tdep_aerosol : dict, optional
+        Time-dependent aerosol concentrations. Must contain 'time_rad' key.
+    tdep_radiation : dict, optional
+        Time-dependent radiation profiles. Must contain 'time_rad' key.
+    radiation : dict, optional
+        Non-time-dependent radiation profiles. Must contain 'p_lay' and 'p_lev' keys.
+    soil : dict, optional
+        Soil profile data. Must contain 'z' key.
+    source : dict, optional
+        Source location and strength data. Must contain 'sourcelist' key.
+    trajectories : dict, optional
+        Trajectory data. Each trajectory must contain 'time', 'x', 'y', 'z' keys.
+    output_dir : str, optional
+        Output directory. Default is '' (current directory).
+
+    Notes:
+    ------
+    Output file: '{output_dir}/{case_name}_input.nc'
     """
 
     # Precision of input files can be double for single precision runs.
@@ -57,33 +91,28 @@ def save_case_input(
         Add variable to NetCDF file (or group), and write data
         """
         if name in nc_group.variables:
-            print(f'Warning: variables {name} already exists!')
-        else:
-            if dims is None:
-                var = nc_group.createVariable(name, float_type)
-                var[:] = data
-            else:
-                var = nc_group.createVariable(name, float_type, dims)
-                var[:] = data[:]
+            print(f'Warning: variable {name} already exists!')
+            return
+
+        var = nc_group.createVariable(name, float_type, dims)
+        var[:] = data if dims is None else data[:]
 
     def add_dim(nc_group, name, size):
         """
         Add NetCDF dimension, if it does not already exist.
         """
-        if not name in nc_group.dimensions:
+        if name not in nc_group.dimensions:
             nc_group.createDimension(name, size)
 
     def is_array(data):
         """
-        Check if value if array or scalar
+        Check if value is array or scalar
         """
-        if isinstance(data, np.ndarray) or isinstance(data, xr.DataArray):
-            return True
-        return False
+        return isinstance(data, (np.ndarray, xr.DataArray))
 
 
     # Define new NetCDF file
-    nc_name = f'{case_name}_input.nc' if path is None else f'{path}/{case_name}_input.nc'
+    nc_name = os.path.join(output_dir, f'{case_name}_input.nc')
     nc_file = nc4.Dataset(nc_name, mode='w', datamodel='NETCDF4')
 
     # Create height dimension, and set height coordinate
@@ -93,9 +122,9 @@ def save_case_input(
     # Create a group called "init" for the initial profiles.
     nc_group_init = nc_file.createGroup('init')
 
-    # Check if any of the timedep's are active.
+    # Check if any of the timedep groups are active.
     tdep_groups = (tdep_surface, tdep_ls, tdep_source, tdep_chem, tdep_aerosol, tdep_radiation)
-    has_tdep = any([group is not None for group in tdep_groups])
+    has_tdep = any(tdep_groups)
 
     # Create a group called `timedep` for the time dependent input.
     if has_tdep:
@@ -237,15 +266,9 @@ def save_case_input(
 
             nc_group_traj = nc_file.createGroup(f'trajectory_{name}');
             add_dim(nc_group_traj, 'itraj', trajectory['time'].size)
-            nc_t = nc_group_traj.createVariable('time', float_type, ('itraj'))
-            nc_x = nc_group_traj.createVariable('x',    float_type, ('itraj'))
-            nc_y = nc_group_traj.createVariable('y',    float_type, ('itraj'))
-            nc_z = nc_group_traj.createVariable('z',    float_type, ('itraj'))
 
-            nc_t[:] = trajectory['time']
-            nc_x[:] = trajectory['x']
-            nc_y[:] = trajectory['y']
-            nc_z[:] = trajectory['z']
-
+            for var_name in ['time', 'x', 'y', 'z']:
+                var = nc_group_traj.createVariable(var_name, float_type, ('itraj'))
+                var[:] = trajectory[var_name]
 
     nc_file.close()
