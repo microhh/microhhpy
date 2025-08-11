@@ -33,7 +33,7 @@ from microhhpy.logger import logger
 
 
 class Land_surface_input:
-    def __init__(self, itot, jtot, ktot, TF=np.float64, debug=False, exclude_fields=[]):
+    def __init__(self, itot, jtot, ktot, float_type=np.float64, debug=False, exclude_fields=[]):
         """
         Data structure for the required input for the MicroHH LSM.
 
@@ -45,7 +45,7 @@ class Land_surface_input:
                 Number of grid points in y-direction.
             ktot : int
                 Number of soil layers.
-            TF : np.float32 or np.float64
+            float_type : np.float32 or np.float64
                 Floating point precision used by MicroHH.
             debug : bool, default: False
                 Switch to fill the emtpy fields with a large negative number,
@@ -76,17 +76,17 @@ class Land_surface_input:
                 't_soil', 'theta_soil', 'index_soil', 'root_frac']
 
         # Horizonal grid (cell centers)
-        self.x = np.zeros(itot, dtype=TF)
-        self.y = np.zeros(jtot, dtype=TF)
+        self.x = np.zeros(itot, dtype=float_type)
+        self.y = np.zeros(jtot, dtype=float_type)
 
         # Lat/lon coordinates of each grid point (not used by LES)
-        self.lon = np.zeros((jtot, itot), dtype=TF)
-        self.lat = np.zeros((jtot, itot), dtype=TF)
+        self.lon = np.zeros((jtot, itot), dtype=float_type)
+        self.lat = np.zeros((jtot, itot), dtype=float_type)
 
         # Create empty 2D/3D fields
         def get_dtype(name):
-            return TF
-            #return np.uint16 if 'index' in name else TF
+            return float_type
+            #return np.uint16 if 'index' in name else float_type
 
         for fld in self.fields_2d:
             setattr(self, fld, np.zeros((jtot, itot), dtype=get_dtype(fld)))
@@ -111,6 +111,9 @@ class Land_surface_input:
         else:
             not_initialised = []
             for fld in self.fields_2d + self.fields_3d:
+                if fld in self.exclude_fields:
+                    continue
+
                 data = getattr(self, fld)
                 if 'index' in fld and np.any(data == -1):
                     not_initialised.append(fld)
@@ -122,7 +125,7 @@ class Land_surface_input:
                 logger.warning(f'Uninitialised land-surface fields: {fld_str}')
 
 
-    def save_binaries(self, path='.', allow_overwrite=False):
+    def to_binaries(self, path='.', allow_overwrite=False):
         """
         Write all required MicroHH input fields in binary format
 
@@ -147,7 +150,7 @@ class Land_surface_input:
                 save_bin(data, f'{os.path.join(path, fld)}.0000000')
 
 
-    def save_netcdf(self, nc_file, allow_overwrite=False):
+    def to_netcdf(self, nc_file, allow_overwrite=False):
         """
         Save MicroHH input to NetCDF file. Not used by MicroHH, but useful for visualisation/debug.
 
@@ -175,8 +178,8 @@ class Land_surface_input:
             if field not in self.exclude_fields:
                 data_vars[field] = (['z', 'y', 'x'], getattr(self, field))
 
-        ds = xr.Dataset(
+        self.ds = xr.Dataset(
             data_vars=data_vars,
             coords=coords)
 
-        ds.to_netcdf(nc_file)
+        self.ds.to_netcdf(nc_file)
