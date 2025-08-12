@@ -37,7 +37,7 @@ from .corine_landuse import read_corine, corine_to_ifs_ids
 from .lcc_landuse import read_lcc, lcc_to_ifs_ids
 
 from .lsm_input import Land_surface_input
-from .ifs_vegetation import get_ifs_vegetation_lut
+from .ifs_vegetation import get_ifs_vegetation_lut, calc_root_fraction_3d
 
 
 class Lu_src(Enum):
@@ -48,6 +48,7 @@ class Lu_src(Enum):
 def create_land_surface_input(
     lon,
     lat,
+    z_soil,
     land_use_tiff,
     land_use_source = 'lcc_100m',
     save_binaries=True,
@@ -65,6 +66,10 @@ def create_land_surface_input(
     # Lookup table with IFS vegetation properties (z0m, c_veg, ..).
     ifs_vegetation = get_ifs_vegetation_lut()
 
+
+    """
+    Read GeoTIFF and translate original to IFS vegetation types.
+    """
     if land_use == Lu_src.CORINE_100M:
         logger.debug('Reading Corine GeoTIFF.')
 
@@ -88,7 +93,10 @@ def create_land_surface_input(
         # Translate Corine land-use index to IFS index
         ifs_index = lcc_to_ifs_ids(da_lu)
 
-    # Interpolate (NN) vegetation types onto LES grid
+
+    """
+    Interpolate (NN) vegetation types onto LES grid.
+    """
     if da_lu.lon.ndim == 1:
         # LCC
         lonlat = np.zeros((da_lu.lon.size*da_lu.lat.size, 2))
@@ -104,17 +112,24 @@ def create_land_surface_input(
     interp = NearestNDInterpolator(lonlat, ifs_index.flatten())
     ifs_index_nn = interp(lon, lat).astype(np.int32)
 
-    # Create 2D input fields MicroHH
+
+    """
+    Create input fields for MicroHH.
+    """
     jtot, itot = lon.shape
     exclude = ['t_bot_water', 't_soil', 'theta_soil', 'index_soil']
 
     lsm_input = Land_surface_input(
-        itot, jtot, ktot=1,
+        itot, jtot, ktot=z_soil.size,
         exclude_fields=exclude,
         float_type=float_type, debug=True)
 
     lsm_input.lon = lon
     lsm_input.lat = lat
+
+    # Coefficients used to calculate root fraction.
+    a_r = np.zeros_like(lon, dtype=np.float32)
+    b_r = np.zeros_like(lon, dtype=np.float32)
 
     for code in np.unique(ifs_index_nn):
         mask = (ifs_index_nn == code)
@@ -138,6 +153,8 @@ def create_land_surface_input(
             lsm_input.alb_dif[mask] = 0.08
             lsm_input.water_mask[mask] = 1
             lsm_input.index_veg[mask] = 13
+            a_r[mask] = -1
+            b_r[mask] = -1
         else:
             lsm_input.c_veg[mask] = ifs_vegetation['c_veg'][code]
             lsm_input.z0m[mask] = ifs_vegetation['z0m'][code]
@@ -153,16 +170,35 @@ def create_land_surface_input(
             lsm_input.alb_dif[mask] = ifs_vegetation['albedo'][code]
             lsm_input.water_mask[mask] = 0
             lsm_input.index_veg[mask] = code
+            a_r[mask] = ifs_vegetation['a_r'][code]
+            b_r[mask] = ifs_vegetation['b_r'][code]
 
-    # Save in NetCDF for visualisation:
+    """
+    Calculate root fraction from a,b coefficients.
+    """
+    ktot = z_soil.size
+    zh_soil = np.zeros(ktot + 1)
+    for k in range(ktot-1, -1, -1):
+        zh_soil[k] = zh_soil[k+1] + 2*(z_soil[k] - zh_soil[k+1])
+
+    calc_root_fraction_3d(lsm_input.root_frac, a_r, b_r, zh_soil)
+
+
+    """
+    Save in NetCDF for visualisation.
+    """
     if save_netcdf:
         file_path = os.path.join(output_dir, netcdf_file)
         logger.debug(f'Saving {file_path}')
         lsm_input.to_netcdf(file_path, allow_overwrite=True)
 
-    # Save MicroHH input binaries:
+
+    """
+    Save in binary format for MicroHH input.
+    """
     if save_binaries:
         logger.debug(f'Saving land-surface binaries in {output_dir}')
         lsm_input.to_binaries(path=output_dir, allow_overwrite=True)
+
 
     return lsm_input

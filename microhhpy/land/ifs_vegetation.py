@@ -26,6 +26,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import numpy as np
+from numba import njit
 
 # Local library
 
@@ -134,3 +135,45 @@ def get_ifs_vegetation_cmap():
     ]
 
     return ListedColormap(_vegetation_colors, name='vegetation')
+
+
+def calc_root_fraction_1d(a_r, b_r, zh):
+    """
+    Calculate root fraction using the `a_r` and `b_r` coefficients from IFS.
+    """
+    root_frac = np.zeros(zh.size-1)
+
+    for k in range(1, zh.size-1):
+        root_frac[k] = 0.5 * (np.exp(a_r * zh[k+1]) + \
+                              np.exp(b_r * zh[k+1]) - \
+                              np.exp(a_r * zh[k  ]) - \
+                              np.exp(b_r * zh[k  ]))
+
+    # Make sure the profile sums to 1.
+    root_frac[0] = 1-root_frac.sum()
+
+    return root_frac
+
+
+@njit
+def calc_root_fraction_3d(root_frac, a_r, b_r, zh):
+    """
+    Calculate root fraction using the `a_r` and `b_r` coefficients from IFS for 2D input.
+    """
+    ktot, jtot, itot = root_frac.shape
+
+    for k in range(1, ktot):
+        for j in range(jtot):
+            for i in range(itot):
+                if a_r[j,i] >= 0 and b_r[j,i] >= 0:
+                    root_frac[k,j,i] = 0.5 * (np.exp(a_r[j,i] * zh[k+1]) + \
+                                              np.exp(b_r[j,i] * zh[k+1]) - \
+                                              np.exp(a_r[j,i] * zh[k  ]) - \
+                                              np.exp(b_r[j,i] * zh[k  ]))
+                else:
+                    root_frac[k,j,i] = 1/ktot
+
+    # Make sure the profile sums to 1.
+    for j in range(jtot):
+        for i in range(itot):
+            root_frac[0,j,i] = 1 - root_frac[1:,j,i].sum()
