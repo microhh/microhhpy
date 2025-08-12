@@ -34,8 +34,11 @@ from microhhpy.land import ifs_vegetation
 from microhhpy.logger import logger
 
 from .corine_landuse import read_corine, corine_to_ifs_ids
+from .lcc_landuse import read_lcc, lcc_to_ifs_ids
+
 from .lsm_input import Land_surface_input
-from .ifs_vegetation import ifs_vegetation
+from .ifs_vegetation import get_ifs_vegetation_lut
+
 
 class Lu_src(Enum):
     CORINE_100M = "corine_100m"
@@ -53,15 +56,18 @@ def create_land_surface_input(
     netcdf_file='',
     float_type=np.float64):
 
-    print(ifs_vegetation['name'])
-
     # From string -> enum, less brittle..
     try:
         land_use = Lu_src(land_use_source)
     except ValueError:
         logger.critical(f'Invalid land use source: "{land_use_source}".')
 
+    # Lookup table with IFS vegetation properties (z0m, c_veg, ..).
+    ifs_vegetation = get_ifs_vegetation_lut()
+
     if land_use == Lu_src.CORINE_100M:
+        logger.debug('Reading Corine GeoTIFF.')
+
         # Read GeoTIFF.
         da_lu, _ = read_corine(
             land_use_tiff,
@@ -71,16 +77,26 @@ def create_land_surface_input(
         # Translate Corine land-use index to IFS index
         ifs_index = corine_to_ifs_ids(da_lu)
 
-    elif land_use_source == Lu_src.LCC_100M:
-        logger.critical('TODO')
+    elif land_use == Lu_src.LCC_100M:
+        logger.debug('Reading 100 m LCC GeoTIFF.')
+
+        da_lu = read_lcc(
+            land_use_tiff,
+            lon.min()-0.25, lon.max()+0.25,
+            lat.min()-0.25, lat.max()+0.25)
+
+        # Translate Corine land-use index to IFS index
+        ifs_index = lcc_to_ifs_ids(da_lu)
 
     # Interpolate (NN) vegetation types onto LES grid
     if da_lu.lon.ndim == 1:
+        # LCC
         lonlat = np.zeros((da_lu.lon.size*da_lu.lat.size, 2))
-        lon,lat = np.meshgrid(da_lu.lon, da_lu.lat)
-        lonlat[:,0] = lon.flatten()
-        lonlat[:,1] = lat.flatten()
+        lon2d, lat2d = np.meshgrid(da_lu.lon, da_lu.lat)
+        lonlat[:,0] = lon2d.flatten()
+        lonlat[:,1] = lat2d.flatten()
     else:
+        # Corine
         lonlat = np.zeros((da_lu.lon.size, 2))
         lonlat[:,0] = da_lu.lon.values.flatten()
         lonlat[:,1] = da_lu.lat.values.flatten()
@@ -91,6 +107,7 @@ def create_land_surface_input(
     # Create 2D input fields MicroHH
     jtot, itot = lon.shape
     exclude = ['t_bot_water', 't_soil', 'theta_soil', 'index_soil']
+
     lsm_input = Land_surface_input(
         itot, jtot, ktot=1,
         exclude_fields=exclude,

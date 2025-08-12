@@ -29,7 +29,6 @@ from rasterio.warp import transform
 
 # Local library
 from microhhpy.logger import logger
-from .ifs_vegetation import ifs_vegetation
 
 
 def read_corine(geotiff_file, lon_0, lon_1, lat_0, lat_1):
