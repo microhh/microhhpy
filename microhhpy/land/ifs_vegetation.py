@@ -171,7 +171,7 @@ def calc_root_fraction_3d(root_frac, a_r, b_r, zh):
                                               np.exp(a_r[j,i] * zh[k  ]) - \
                                               np.exp(b_r[j,i] * zh[k  ]))
                 else:
-                    root_frac[k,j,i] = 1/ktot
+                    root_frac[k,j,i] = 0.
 
     # Make sure the profile sums to 1.
     for j in range(jtot):
