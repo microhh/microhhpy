@@ -33,7 +33,7 @@ import multiprocessing
 # Local library
 from microhhpy.logger import logger
 from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation_factors
-from microhhpy.interpolate.interpolate_kernels import interpolate_rect_to_curv
+from microhhpy.interpolate.interpolate_kernels import interp_rect_to_curv_kernel
 from microhhpy.spatial import calc_vertical_grid_2nd
 
 from .global_help_functions import gaussian_filter_wrapper
@@ -176,7 +176,7 @@ def parse_scalar(
         fld_in = fld_in.values
 
     # Tri-linear interpolation from host to LES grid.
-    interpolate_rect_to_curv(
+    interp_rect_to_curv_kernel(
         fld_les,
         fld_in,
         ip_fac.il,
@@ -321,7 +321,7 @@ def parse_momentum(
         w_in = w_in.values
 
     # Tri-linear interpolation from host to LES grid.
-    interpolate_rect_to_curv(
+    interp_rect_to_curv_kernel(
         u,
         u_in,
         ip_u.il,
@@ -332,7 +332,7 @@ def parse_momentum(
         z_in,
         dtype)
 
-    interpolate_rect_to_curv(
+    interp_rect_to_curv_kernel(
         v,
         v_in,
         ip_v.il,
@@ -343,7 +343,7 @@ def parse_momentum(
         z_in,
         dtype)
 
-    interpolate_rect_to_curv(
+    interp_rect_to_curv_kernel(
         w,
         w_in,
         ip_s.il,
@@ -485,7 +485,7 @@ def parse_pressure(
     if isinstance(p_in, xr.DataArray):
         p_in = p_in.values
 
-    interpolate_rect_to_curv(
+    interp_rect_to_curv_kernel(
         p_les,
         p_in,
         ip_s.il,

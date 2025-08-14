@@ -165,7 +165,7 @@ class Rect_to_curv_interpolation_factors:
 
 
 @jit(nopython=True, nogil=True, fastmath=True, parallel=True)
-def interpolate_rect_to_curv(
+def interp_rect_to_curv_kernel(
         fld_out,
         fld_in,
         il,
@@ -174,7 +174,7 @@ def interpolate_rect_to_curv(
         fy,
         z_out,
         z_in,
-        dtype):
+        float_type):
     """
     Fast bi- or tri-linear interpolation of ERA5 onto LES grid, using horizontal interpolation
     factors pre-calculated with `Rect_to_curv_interpolation_factors()`.
@@ -200,14 +200,14 @@ def interpolate_rect_to_curv(
         Heights of output model levels
     z_in : np.ndarray, shape (3,)
         Heights of input model levels.
-    dtype : Numpy float type
-        Numpy floating point datatype.
+    float_type : np.float32 or np.float64
+        Floating point precision.
 
     Returns:
     -------
     None
     """
-    TF = dtype
+    TF = float_type
 
     if fld_out.ndim == 2 and fld_in.ndim == 3:
         """

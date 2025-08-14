@@ -28,5 +28,43 @@ import numpy as np
 # Local library
 from microhhpy.logger import logger
 from .interpolate_kernels import Rect_to_curv_interpolation_factors
+from .interpolate_kernels import interp_rect_to_curv_kernel
 
 
+def interp_rect_to_curv_latlon_2d(
+    fld_in,
+    lon_in,
+    lat_in,
+    lon_out,
+    lat_out,
+    float_type):
+    """
+    Interpolate 2D `fld_in` from rectilinear grid to curvilinear grid.
+
+    Arguments:
+    ----------
+    fld_in : np.ndarray, shape(2,) 
+        Input field.
+    lon_in, np.ndarray, shape(1,)
+        Input longitudes.
+    lat_in, np.ndarray, shape(1,)
+        Input latitudes.
+    lon_out, np.ndarray, shape(2,)
+        Output longitudes.
+    lat_out, np.ndarray, shape(2,)
+        Output latitudes.
+    float_type : np.float32 or np.float64
+        Floating point precision output field.
+
+    Returns:
+    --------
+    fld_out : np.ndarray, shape(2,)
+        Interpolated field.
+    """
+
+    fld_out = np.zeros_like(lon_out, dtype=float_type)
+
+    ipf = Rect_to_curv_interpolation_factors(lon_in, lat_in, lon_out, lat_out, float_type)
+    interp_rect_to_curv_kernel(fld_out, fld_in, ipf.il, ipf.jl, ipf.fx, ipf.fy, z_out=None, z_in=None, float_type=float_type)
+
+    return fld_out

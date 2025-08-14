@@ -33,7 +33,16 @@ from microhhpy.logger import logger
 
 
 class Land_surface_input:
-    def __init__(self, itot, jtot, ktot, float_type=np.float64, debug=False, exclude_fields=[]):
+    def __init__(
+        self,
+        itot,
+        jtot,
+        ktot,
+        exclude_fields=[],
+        exclude_soil=False,
+        exclude_veg=False,
+        debug=False,
+        float_type=np.float64):
         """
         Data structure for the required input for the MicroHH LSM.
 
@@ -45,13 +54,17 @@ class Land_surface_input:
                 Number of grid points in y-direction.
             ktot : int
                 Number of soil layers.
-            float_type : np.float32 or np.float64
-                Floating point precision used by MicroHH.
+            exclude_fields : list(str)
+                Exclude fields from being saved as binary.
+            exlude_soil : bool, default=False
+                Exclude soil fields.
+            exlude_veg : bool, default=False
+                Exclude vegetation fields.
             debug : bool, default: False
                 Switch to fill the emtpy fields with a large negative number,
                 to ensure that every grid point is initialized before saving.
-            exclude_fields : list(str)
-                Exclude fields from being saved as binary.
+            float_type : np.float32 or np.float64
+                Floating point precision used by MicroHH.
 
         Returns:
         --------
@@ -62,7 +75,6 @@ class Land_surface_input:
         self.jtot = jtot
         self.ktot = ktot
         self.debug = debug
-        self.exclude_fields = exclude_fields
 
         # List of fields which are written to the binary input files for MicroHH
         self.fields_2d = [
@@ -74,6 +86,12 @@ class Land_surface_input:
                 'index_veg']
         self.fields_3d = [
                 't_soil', 'theta_soil', 'index_soil', 'root_frac']
+
+        self.exclude_fields = exclude_fields
+        if exclude_soil:
+            self.exclude_fields += ['t_soil', 'theta_soil', 'index_soil']
+        if exclude_veg:
+            self.exclude_fields += self.fields_2d + ['root_frac']
 
         # Horizonal grid (cell centers)
         self.x = np.zeros(itot, dtype=float_type)
@@ -89,16 +107,19 @@ class Land_surface_input:
             #return np.uint16 if 'index' in name else float_type
 
         for fld in self.fields_2d:
-            setattr(self, fld, np.zeros((jtot, itot), dtype=get_dtype(fld)))
+            if fld not in self.exclude_fields:
+                setattr(self, fld, np.zeros((jtot, itot), dtype=get_dtype(fld)))
 
         for fld in self.fields_3d:
-            setattr(self, fld, np.zeros((ktot, jtot, itot), dtype=get_dtype(fld)))
+            if fld not in self.exclude_fields:
+                setattr(self, fld, np.zeros((ktot, jtot, itot), dtype=get_dtype(fld)))
 
         if debug:
             # Init all values at large negative number
             for fld in self.fields_2d + self.fields_3d:
-                data = getattr(self, fld)
-                data[:] = -1 if 'index' in fld else 1e12
+                if fld not in self.exclude_fields:
+                    data = getattr(self, fld)
+                    data[:] = -1 if 'index' in fld else 1e12
 
 
     def check(self):
