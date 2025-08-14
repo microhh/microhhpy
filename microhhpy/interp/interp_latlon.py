@@ -26,8 +26,8 @@
 import numpy as np
 
 # Local library
-from .interpolate_kernels import Rect_to_curv_interpolation_factors
-from .interpolate_kernels import interp_rect_to_curv_kernel
+from .interp_kernels import Rect_to_curv_interpolation_factors
+from .interp_kernels import interp_rect_to_curv_kernel
 
 
 def interp_rect_to_curv_latlon_2d(

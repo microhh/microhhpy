@@ -31,10 +31,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Local library
 from microhhpy.logger import logger
-from microhhpy.interpolate.interpolate_kernels import Rect_to_curv_interpolation_factors
-from microhhpy.interpolate.interpolate_kernels import interp_rect_to_curv_kernel
+from microhhpy.interp.interp_kernels import Rect_to_curv_interpolation_factors
+from microhhpy.interp.interp_kernels import interp_rect_to_curv_kernel
 from microhhpy.spatial import calc_vertical_grid_2nd
 
+# Local directory
 from .global_help_functions import gaussian_filter_wrapper
 from .global_help_functions import correct_div_uv
 from .numba_kernels import block_perturb_field, blend_w_to_zero_at_sfc, calc_w_from_uv, check_divergence

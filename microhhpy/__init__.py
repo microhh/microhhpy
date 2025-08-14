@@ -3,10 +3,10 @@
 
 # Expose sub-directories as `import microhhpy; microhhpy.subdir.some_function()`
 # NOTE: this only exposes what is defined in the subdirectory `__init__.py`.
-from .spatial import *
-from .thermo import *
-from .interpolate import *
-from .emission import *
+from .chem import *
+from .interp import *
 from .io import *
-from .openbc import *
 from .land import *
+from .spatial import *
+from .real import *
+from .thermo import *
