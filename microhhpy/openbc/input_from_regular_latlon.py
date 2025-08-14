@@ -28,7 +28,6 @@ import numpy as np
 from datetime import datetime
 
 from concurrent.futures import ThreadPoolExecutor
-import multiprocessing
 
 # Local library
 from microhhpy.logger import logger

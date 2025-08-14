@@ -25,12 +25,10 @@ import glob
 import os
 
 # Third-party.
-import numpy as np
 import rioxarray as rxr
 import xarray as xr
 
 # Local library
-from microhhpy.logger import logger
 
 
 def read_hihydrosoil_subtop(geotiff_path, lon0, lon1, lat0, lat1):

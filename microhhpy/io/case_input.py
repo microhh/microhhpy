@@ -29,7 +29,6 @@ import xarray as xr
 import numpy as np
 
 # Local library
-from microhhpy.logger import logger
 
 
 def save_case_input(
@@ -264,7 +263,7 @@ def save_case_input(
     if trajectories is not None:
         for name,trajectory in trajectories.items():
 
-            nc_group_traj = nc_file.createGroup(f'trajectory_{name}');
+            nc_group_traj = nc_file.createGroup(f'trajectory_{name}')
             add_dim(nc_group_traj, 'itraj', trajectory['time'].size)
 
             for var_name in ['time', 'x', 'y', 'z']:

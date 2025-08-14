@@ -258,7 +258,6 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=Non
     #       imports can be a pain in the *** on some supercomputers.
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
-    import cartopy.io.img_tiles as cimgt
     import cartopy.feature as cfeature
 
     if labels is None:

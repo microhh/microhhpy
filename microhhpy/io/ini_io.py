@@ -24,7 +24,6 @@
 import os
 
 # Third-party.
-import numpy as np
 
 # Local library
 from microhhpy.logger import logger

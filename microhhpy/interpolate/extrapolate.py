@@ -28,7 +28,6 @@ from scipy.interpolate import griddata
 from scipy import ndimage
 
 # Local library
-from microhhpy.logger import logger
 
 
 def extrapolate_onto_mask(data, mask, max_distance=5):
@@ -53,9 +52,6 @@ def extrapolate_onto_mask(data, mask, max_distance=5):
     
     source_data = data[mask]
     source_coords = np.column_stack(np.where(mask))
-    
-    # Get coordinates of areas to fill (target areas)
-    target_coords = np.column_stack(np.where(~mask))
     
     # Calculate distance from each target cell to nearest source cell
     distance_to_source = ndimage.distance_transform_edt(~mask)

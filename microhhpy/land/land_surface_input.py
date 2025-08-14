@@ -25,12 +25,10 @@ from enum import Enum
 import os
 
 # Third-party.
-from attr.filters import exclude
 import numpy as np
 from scipy.interpolate import NearestNDInterpolator
 
 # Local library
-from microhhpy.land import ifs_vegetation
 from microhhpy.logger import logger
 
 from .corine_landuse import read_corine, corine_to_ifs_ids

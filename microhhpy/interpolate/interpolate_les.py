@@ -51,7 +51,6 @@ def regrid_les(
         path_in,
         path_out,
         float_type,
-        #method='nearest',
         name_suffix=''):
     """
     Interpolate 3D LES fields from one LES grid to another and save in binary format.
@@ -107,8 +106,6 @@ def regrid_les(
         Path to write interpolated binary files.
     float_type : np.float32 or np.float64
         Floating point precision.
-    #method : string
-    #    Interpolation method, see https://docs.xarray.dev/en/latest/generated/xarray.DataArray.interp.html for options.
     name_suffix : string
         Save output fields with `name_suffix` appended (e.g. `thl_somename.0000000`)
 
@@ -117,9 +114,6 @@ def regrid_les(
     None
     """
     logger.info(f'Regridding LES fields from {path_in} to {path_out}.')
-
-    # Use NN interpolation to stay in line with the boundary conditions.
-    method = 'nearest'
 
     name_suffix = f'_{name_suffix}' if name_suffix else ''
 

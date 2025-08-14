@@ -26,7 +26,6 @@
 import numpy as np
 
 # Local library
-from microhhpy.logger import logger
 
 
 def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
@@ -76,14 +75,14 @@ def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
     zh[kend] = zsize
 
     for k in range(1, kcells):
-        dzh[k] = z[k] - z[k-1];
+        dzh[k] = z[k] - z[k-1]
     dzh[kstart-1] = dzh[kstart+1]
     dzhi = 1./dzh
 
     for k in range(1, kcells-1):
-        dz[k] = zh[k+1] - zh[k];
-    dz[kstart-1] = dz[kstart];
-    dz[kend] = dz[kend-1];
+        dz[k] = zh[k+1] - zh[k]
+    dz[kstart-1] = dz[kstart]
+    dz[kend] = dz[kend-1]
     dzi = 1./dz
 
     if remove_ghost:
@@ -142,7 +141,7 @@ def refine_grid_for_nesting(z, zh, ratio):
         for k in range(ktot):
             dzh = (zh[k+1] - zh[k]) / ratio
             for s in range(ratio):
-                zhn[k*ratio+s] = zh[k] + s * dzh;
+                zhn[k*ratio+s] = zh[k] + s * dzh
         zhn[-1] = zh[-1]
 
         # Reconstruct full level heights.

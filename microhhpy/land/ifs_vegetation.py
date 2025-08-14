@@ -23,7 +23,6 @@
 # Standard library
 
 # Third-party.
-import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import numpy as np
 from numba import njit

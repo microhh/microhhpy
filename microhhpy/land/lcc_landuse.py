@@ -27,7 +27,6 @@ import numpy as np
 import rioxarray as rxr
 
 # Local library
-from microhhpy.logger import logger
 
 
 def read_lcc(geotiff_file, lon_0, lon_1, lat_0, lat_1):

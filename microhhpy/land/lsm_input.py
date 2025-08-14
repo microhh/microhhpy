@@ -21,7 +21,6 @@
 #
 
 # Standard library
-import sys
 import os
 
 # Third-party.

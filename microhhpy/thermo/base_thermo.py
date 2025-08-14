@@ -68,7 +68,7 @@ def esat_liq(T):
     float
         Saturation vapor pressure Pa.
     """
-    x = np.maximum(-75., T-cst.T0);
+    x = np.maximum(-75., T-cst.T0)
     return 611.21*np.exp(17.502*x / (240.97+x))
 
 
@@ -172,7 +172,7 @@ def qsat(p, T):
 @njit
 def virtual_temperature(exn, thl, qt, ql, qi):
     th = thl + cst.Lv*ql/(cst.cp*exn) + cst.Ls*qi/(cst.cp*exn)
-    return th * (1. - (1. - cst.Rv/cst.Rd)*qt - cst.Rv/cst.Rd*(ql+qi));
+    return th * (1. - (1. - cst.Rv/cst.Rd)*qt - cst.Rv/cst.Rd*(ql+qi))
 
 
 @njit
@@ -237,7 +237,7 @@ def sat_adjust(thl, qt, p, use_ice=True):
         alpha_i = 1. - alpha_w
         qs = qsat(p, tnr)
         ql_qi = max(0., qt-qs)
-        ql = alpha_w*ql_qi;
-        qi = alpha_i*ql_qi;
+        ql = alpha_w*ql_qi
+        qi = alpha_i*ql_qi
 
         return tnr, ql, qi, qs

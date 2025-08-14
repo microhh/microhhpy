@@ -26,7 +26,6 @@
 import numpy as np
 
 # Local library
-from microhhpy.logger import logger
 from .interpolate_kernels import Rect_to_curv_interpolation_factors
 from .interpolate_kernels import interp_rect_to_curv_kernel
 

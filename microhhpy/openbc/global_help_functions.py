@@ -23,10 +23,7 @@
 # Standard library
 
 # Third-party.
-import numpy as np
-from numba import jit, prange
 from scipy.ndimage import gaussian_filter
-import xarray as xr
 
 # Local library
 from microhhpy.logger import logger

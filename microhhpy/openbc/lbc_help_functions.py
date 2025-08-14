@@ -27,7 +27,6 @@ import numpy as np
 import xarray as xr
 
 # Local library
-from microhhpy.logger import logger
 
 
 def create_lbc_ds(
@@ -84,26 +83,8 @@ def create_lbc_ds(
 
     itot = x.size
     jtot = y.size
-    ktot = z.size
 
     nlbc = n_ghost + n_sponge
-
-    # Dimension sizes.
-    dims = {
-        'time': time.size,
-        'x': itot + 2*n_ghost,
-        'xh': itot + 2*n_ghost,
-        'xgw': nlbc,
-        'xge': nlbc,
-        'xhgw': nlbc + 1,
-        'xhge': nlbc,
-        'y': jtot + 2*n_ghost,
-        'yh': jtot + 2*n_ghost,
-        'ygn': nlbc,
-        'ygs': nlbc,
-        'yhgs': nlbc + 1,
-        'yhgn': nlbc,
-        'z': ktot}
 
     # Coordinates.
     dx = x[1] - x[0]
@@ -198,7 +179,7 @@ def create_lbc_ds(
         add_var('w_south', ('time', 'zh', 'ygs', 'x'))
         add_var('w_north', ('time', 'zh', 'ygn', 'x'))
 
-    ds.time.attrs['units'] = f'Seconds since start of simulation'
+    ds.time.attrs['units'] = 'Seconds since start of simulation'
 
     return ds
 
