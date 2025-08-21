@@ -20,9 +20,6 @@
 #  along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# Standard library
-from importlib import resources
-
 # Third-party.
 from matplotlib.colors import ListedColormap
 from numba import njit
@@ -30,6 +27,7 @@ import xarray as xr
 import numpy as np
 
 # Local library
+from microhhpy.utils import get_data_file
 
 def get_ifs_vegetation_lut():
     _raw_data = np.array([
@@ -143,10 +141,6 @@ def get_ifs_soil_lut():
     """
     Read the lookup table with van Genuchten parameters.
     """
-    def get_data_file(file_name):
-        with resources.as_file(resources.files('microhhpy.data') / file_name) as path:
-            return path
-
     nc_file = get_data_file('van_genuchten_parameters.nc')
 
     return xr.open_dataset(nc_file)

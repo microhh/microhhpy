@@ -20,15 +20,13 @@
 #  along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# Standard library
-from importlib import resources
-
 # Third-party.
 import xarray as xr
 import numpy as np
 
 # Local library
 from microhhpy.logger import logger
+from microhhpy.utils import get_data_file
 
 
 def get_rfmip_species(lat, lon, exp):
@@ -49,10 +47,6 @@ def get_rfmip_species(lat, lon, exp):
     rfmip_dict : dict
         Dictionary with RFMIP species.
     """
-
-    def get_data_file(file_name):
-        with resources.as_file(resources.files('microhhpy.data') / file_name) as path:
-            return path
 
     nc_file = get_data_file('rfmip_species.nc')
     ds = xr.open_dataset(nc_file)
