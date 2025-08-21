@@ -76,8 +76,6 @@ def create_sst_from_regular_latlon(
     # Extrapolate function expects the sea mask.
     sea_mask = ~sst_in.mask
 
-    sst_out = np.zeros_like(lon_out, dtype=float_type)
-
     # Extrapolate SSTs onto land-mask before interpolation.
     sst_ext = extrapolate_onto_mask(sst_in.data, sea_mask, max_distance=5)
 

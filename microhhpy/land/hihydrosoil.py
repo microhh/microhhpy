@@ -57,10 +57,10 @@ def read_hihydrosoil_subtop(geotiff_path, lon0, lon1, lat0, lat1):
     Returns:
     --------
     ds : xarray.Dataset
-        HiHydroSoil parameters in Xarray Dataset form.
+        HiHydroSoil parameters in Xarray Dataset form,
+        with separate variables for top and subsoil.
     """
     scale_fac = 0.0001
-
     tiff_files = glob.glob(f'{geotiff_path}/*.tif')
 
     variables = {}
@@ -69,51 +69,43 @@ def read_hihydrosoil_subtop(geotiff_path, lon0, lon1, lat0, lat1):
 
         if 'TOPSOIL' in filename:
             var_name = filename.replace('_TOPSOIL.tif', '')
-            soil_layer = 'TOPSOIL'
+            suffix = 'top'
         elif 'SUBSOIL' in filename:
             var_name = filename.replace('_SUBSOIL.tif', '')
-            soil_layer = 'SUBSOIL'
+            suffix = 'bot'
         else:
             continue
-        
-        if var_name not in variables:
-            variables[var_name] = {}
 
         ds = rxr.open_rasterio(tiff_file)
         ds = ds.reindex(y=ds.y[::-1])
         dss = ds.sel(
             x=slice(lon0-0.5, lon1+0.5),
-            y=slice(lat0-0.5, lat1+0.5))
+            y=slice(lat0-0.5, lat1+0.5)
+        )
         dss = dss.sel(band=1)
         dss = dss.where(dss >= 0) * scale_fac
 
-        variables[var_name][soil_layer] = dss
+        variables[f"{var_name}_{suffix}"] = dss
 
-    data_vars = {}
-    for var_name, soil_data in variables.items():
+    ds = xr.Dataset(variables)
 
-        layers = []
-        layer_names = []
-        for layer_name in ['TOPSOIL', 'SUBSOIL']:
-            if layer_name in soil_data:
-                layers.append(soil_data[layer_name])
-                layer_names.append(layer_name)
-
-        if layers:
-            var_da = xr.concat(layers, dim='soil_layer')
-            var_da = var_da.assign_coords(soil_layer=layer_names)
-            data_vars[var_name] = var_da
-
-    ds = xr.Dataset(data_vars)
-
-    ds = ds.rename({
-        'WCpF2_M_250m': 'theta_fc',
-        'WCpF3_M_250m': 'theta_wp',
-        'WCres_M_250m': 'theta_res',
-        'WCsat_M_250m': 'theta_sat',
-        'ALFA_M_250m': 'vg_a',
-        'N_M_250m': 'vg_n',
-        'Ksat_M_250m': 'ksat'
-    })
+    # Rename to human-friendly names
+    rename_map = {
+        'WCpF2_M_250m_top': 'theta_fc_top',
+        'WCpF2_M_250m_bot': 'theta_fc_bot',
+        'WCpF3_M_250m_top': 'theta_wp_top',
+        'WCpF3_M_250m_bot': 'theta_wp_bot',
+        'WCres_M_250m_top': 'theta_res_top',
+        'WCres_M_250m_bot': 'theta_res_bot',
+        'WCsat_M_250m_top': 'theta_sat_top',
+        'WCsat_M_250m_bot': 'theta_sat_bot',
+        'ALFA_M_250m_top': 'vg_a_top',
+        'ALFA_M_250m_bot': 'vg_a_bot',
+        'N_M_250m_top': 'vg_n_top',
+        'N_M_250m_bot': 'vg_n_bot',
+        'Ksat_M_250m_top': 'ksat_top',
+        'Ksat_M_250m_bot': 'ksat_bot'
+    }
+    ds = ds.rename({k: v for k, v in rename_map.items() if k in ds})
 
     return ds

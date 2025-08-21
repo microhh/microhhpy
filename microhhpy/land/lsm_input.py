@@ -158,6 +158,8 @@ class Land_surface_input:
         if self.debug:
             self.check()
 
+        logger.info('Writing land-surface binaries')
+
         def save_bin(data, bin_file):
             if not allow_overwrite and os.path.exists(bin_file):
                 logger.critical(f'Binary file \"{bin_file}\" already exists!')
@@ -166,6 +168,7 @@ class Land_surface_input:
 
         for fld in self.fields_2d + self.fields_3d:
             if fld not in self.exclude_fields:
+                logger.debug(f'Saving {fld}.0000000')
                 data = getattr(self, fld)
                 save_bin(data, f'{os.path.join(path, fld)}.0000000')
 

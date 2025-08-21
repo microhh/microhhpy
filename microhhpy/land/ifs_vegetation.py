@@ -21,11 +21,13 @@
 #
 
 # Standard library
+from importlib import resources
 
 # Third-party.
 from matplotlib.colors import ListedColormap
-import numpy as np
 from numba import njit
+import xarray as xr
+import numpy as np
 
 # Local library
 
@@ -103,6 +105,7 @@ def get_ifs_vegetation_lut():
 
     return ifs_vegetation
 
+
 def get_ifs_vegetation_cmap():
     """
     Create matplotlib colormap for IFS vegetation.
@@ -134,6 +137,19 @@ def get_ifs_vegetation_cmap():
     ]
 
     return ListedColormap(_vegetation_colors, name='vegetation')
+
+
+def get_ifs_soil_lut():
+    """
+    Read the lookup table with van Genuchten parameters.
+    """
+    def get_data_file(file_name):
+        with resources.as_file(resources.files('microhhpy.data') / file_name) as path:
+            return path
+
+    nc_file = get_data_file('van_genuchten_parameters.nc')
+
+    return xr.open_dataset(nc_file)
 
 
 def calc_root_fraction_1d(a_r, b_r, zh):

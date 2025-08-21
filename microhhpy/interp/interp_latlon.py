@@ -23,6 +23,7 @@
 # Standard library
 
 # Third-party.
+from scipy.interpolate import RegularGridInterpolator
 import numpy as np
 
 # Local library
@@ -36,24 +37,27 @@ def interp_rect_to_curv_latlon_2d(
     lat_in,
     lon_out,
     lat_out,
-    float_type):
+    float_type,
+    method='linear'):
     """
-    Interpolate 2D `fld_in` from rectilinear grid to curvilinear grid.
+    Wrapper for RegularGridInterpolator.
 
     Arguments:
     ----------
-    fld_in : np.ndarray, shape(2,) 
+    fld_in : np.ndarray, ndim=2 
         Input field.
-    lon_in, np.ndarray, shape(1,)
+    lon_in, np.ndarray, ndim=1
         Input longitudes.
-    lat_in, np.ndarray, shape(1,)
+    lat_in, np.ndarray, ndim=1
         Input latitudes.
-    lon_out, np.ndarray, shape(2,)
+    lon_out, np.ndarray, ndim=2
         Output longitudes.
-    lat_out, np.ndarray, shape(2,)
+    lat_out, np.ndarray, ndim=2
         Output latitudes.
     float_type : np.float32 or np.float64
         Floating point precision output field.
+    method : str
+        Interpolation method.
 
     Returns:
     --------
@@ -61,9 +65,10 @@ def interp_rect_to_curv_latlon_2d(
         Interpolated field.
     """
 
-    fld_out = np.zeros_like(lon_out, dtype=float_type)
+    interp_func = RegularGridInterpolator(
+        (lat_in, lon_in), fld_in.astype(float_type), method=method, bounds_error=True)
 
-    ipf = Rect_to_curv_interpolation_factors(lon_in, lat_in, lon_out, lat_out, float_type)
-    interp_rect_to_curv_kernel(fld_out, fld_in, ipf.il, ipf.jl, ipf.fx, ipf.fy, z_out=None, z_in=None, float_type=float_type)
+    points_out = np.column_stack([lat_out.ravel(), lon_out.ravel()])
+    fld_out = interp_func(points_out).astype(float_type).reshape(lon_out.shape)
 
     return fld_out
