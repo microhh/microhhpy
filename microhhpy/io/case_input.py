@@ -93,7 +93,7 @@ def save_case_input(
             print(f'Warning: variable {name} already exists!')
             return
 
-        var = nc_group.createVariable(name, float_type, dims)
+        var = nc_group.createVariable(name, float_type, dims or ())
         var[:] = data if dims is None else data[:]
 
     def add_dim(nc_group, name, size):
