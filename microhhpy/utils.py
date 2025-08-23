@@ -25,6 +25,8 @@ try:
 except ImportError:
     from importlib_resources import files, as_file
 
+from microhhpy.logger import logger
+
 
 def get_data_file(file_name):
     """
@@ -42,3 +44,36 @@ def get_data_file(file_name):
     """
     with as_file(files('microhhpy.data') / file_name) as path:
         return path
+
+
+def check_domain_decomposition(itot, jtot, ktot, npx, npy):
+    """
+    Check if domain decomposition is valid.
+    """
+    err = False
+    if itot % npx != 0:
+        logger.warning('Invalid decomposition: itot % npx != 0')
+        err = True
+
+    if itot % npy != 0:
+        logger.warning('Invalid decomposition: itot % npy != 0')
+        err = True
+
+    if jtot % npx != 0 and npy > 1:
+        logger.warning('Invalid decomposition: jtot % npx != 0')
+        err = True
+
+    if jtot % npy != 0:
+        logger.warning('Invalid decomposition: jtot % npy != 0')
+        err = True
+
+    if ktot % npx != 0:
+        logger.warning('Invalid decomposition: ktot % npx != 0')
+        err = True
+
+    pts_per_core = int(itot*jtot*ktot/(npx*npy))
+
+    if err:
+        logger.critical(f'Invalid grid: itot={itot}, jtot={jtot}, ktot={ktot}, npx={npx}, npy={npy}, #/core={pts_per_core}')
+    else:
+        logger.info(f'Grid okay: itot={itot}, jtot={jtot}, ktot={ktot}, npx={npx}, npy={npy}, #/core={pts_per_core}')
