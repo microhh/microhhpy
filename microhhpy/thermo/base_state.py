@@ -294,7 +294,7 @@ def read_basestate_density(
     bs = np.fromfile(file_name, dtype=dtype)
     n = int((bs.size - 1) / 2)
 
-    return bs[:n], bs[n:]
+    return dict(rho=bs[:n], rhoh=bs[n:])
 
 
 

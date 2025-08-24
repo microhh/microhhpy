@@ -40,6 +40,7 @@ class Domain:
             n_ghost=0,
             n_sponge=0,
             lbc_freq=None,
+            buffer_freq=None,
             xstart_in_parent=None,
             ystart_in_parent=None,
             parent=None,
@@ -48,6 +49,8 @@ class Domain:
             lon=None,
             lat=None,
             anchor='center',
+            start_date=None,
+            end_date=None,
             proj_str=None,
             work_dir=''):
         """
@@ -55,7 +58,7 @@ class Domain:
 
         NOTE: you can only specify the `lat/lon` location for the outer domain.
               Nests are described relative to their parent using the
-              xstart_in_parent and ystart_in_parent or center_in_parent options.
+              `xstart_in_parent=..` and `ystart_in_parent=..` or `center_in_parent=True` options.
 
         Parameters:
         -----------
@@ -73,6 +76,8 @@ class Domain:
             Number of lateral sponge cells.
         lbc_freq : int of float, optional
             Time interval (sec) of lateral boundary updates.
+        buffer_freq : int or float, optional
+            Timer interval (sec) of buffer updates.
         xstart_in_parent: float, optional, optional
             x-offset in parent domain.
         ystart_in_parent: float, optional, optional
@@ -89,6 +94,10 @@ class Domain:
             Latitude of domain (degrees), only for outer domain.
         anchor : str, default: 'center'
             Anchor point of (`lon, lat`), ∈ ('center', 'southwest')
+        start_date : datetime instance or None
+            Start date of experiment.
+        end_date : datetime instance or None
+            End date of experiment.
         proj_str : str, optional
             Proj.4 / pyproj projection string for lon/lat <-> x/y transformations.
         work_dir : str, optional
@@ -115,12 +124,16 @@ class Domain:
         self.n_lbc = self.n_pad + n_sponge
 
         self.lbc_freq = lbc_freq
+        self.buffer_freq = buffer_freq
 
         self.parent = parent
         self.child = child
 
         self.proj_str = proj_str
         self.work_dir = work_dir
+
+        self.start_date = start_date
+        self.end_date = end_date
 
         self.dx = xsize / itot
         self.dy = ysize / jtot
@@ -236,7 +249,13 @@ class Domain:
             self.jend_pad = self.jtot + self.n_pad
 
 
-def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=None):
+def plot_domains(
+        domains,
+        use_projection=False,
+        scatter_lon=[],
+        scatter_lat=[],
+        scatter_lonlat=False,
+        labels=None):
     """
     Plot position of all domains.
 
@@ -246,6 +265,10 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=Non
         List of `Domain` instances.
     use_projection : bool, optional
         Plot domains on map in lon/lat space instead of x/y.
+    scatter_lon : list(float)
+        Scatter lat/lon points on map as reference.
+    scatter_lat : list(float)
+        Scatter lat/lon points on map as reference.
     scatter_lonlat : bool, optional
         Scatter half level lon/lat points, to check match parent/child position.
 
@@ -302,6 +325,9 @@ def plot_domains(domains, use_projection=False, scatter_lonlat=False, labels=Non
 
             if scatter_lonlat:
                 plt.scatter(d.proj.lon_h, d.proj.lat_h, s=1, transform=ccrs.PlateCarree())
+
+        for lon, lat in zip(scatter_lon, scatter_lat):
+            plt.scatter(lon, lat, transform=ccrs.PlateCarree())
 
         plt.legend(loc='upper left')
 

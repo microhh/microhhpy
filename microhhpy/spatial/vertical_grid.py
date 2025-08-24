@@ -28,7 +28,7 @@ import numpy as np
 # Local library
 
 
-def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
+def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, float_type=np.float64):
     """
     Calculate vertical grid, identical to definition in MicroHH.
 
@@ -40,8 +40,8 @@ def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
         Height of domain top.
     remove_ghost : bool, optional
         Clip off the ghost cells, leaving `ktot` full and `ktot+` half levels. Default is True.
-    dtype : np.dtype, optional
-        Output datatype (np.float32 or np.float64) of arrays.
+    float_type : np.float32 or np.float64, optional
+        Output datatype of arrays.
 
     Returns:
     --------
@@ -57,11 +57,11 @@ def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=np.float64):
     kstart = 1
     kend = ktot+1
 
-    z = np.zeros(kcells, dtype)
-    zh = np.zeros(kcells, dtype)
+    z = np.zeros(kcells, float_type)
+    zh = np.zeros(kcells, float_type)
 
-    dz = np.zeros(kcells, dtype)
-    dzh = np.zeros(kcells, dtype)
+    dz = np.zeros(kcells, float_type)
+    dzh = np.zeros(kcells, float_type)
 
     # Full level heights
     z[kstart:kend] = z_in

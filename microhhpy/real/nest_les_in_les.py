@@ -21,7 +21,9 @@
 #
 
 # Standard library
+from pathlib import Path
 import glob
+import os
 
 # Third-party.
 import xarray as xr
@@ -29,6 +31,8 @@ import numpy as np
 
 # Local library
 from microhhpy.logger import logger
+
+# Local directory
 
 
 def regrid_les(
@@ -50,17 +54,19 @@ def regrid_les(
         ystart_out,
         path_in,
         path_out,
-        float_type,
+        time_offset=0,
+        float_type=np.float64,
         name_suffix=''):
     """
-    Interpolate 3D LES fields from one LES grid to another and save in binary format.
+    Interpolate (NN) 2D and 3D LES fields from one LES grid to another, and save in binary format.
 
-    Time stamps can be:
-    - Single integer
-    - List or np.array of integers
-    - '*'
+    `fields_3d` and `fields_2d` are dictionaries with key=variable and value=time stamp(s), e.g.:
 
-    NOTE: uses Xarray for interpolations, so not the fastest approach...
+    fields_3d = dict(thl=0)
+    fields_3d = dict(thl=[0, 3600]) or dict(thl=np.array([0, 3600]))
+    fields_2d = dict(thl='*'), which does a `glob('thl.0*')` operation to find matching files.
+
+    NOTE: uses Xarray for interpolations, so not the fastest approach, but so far sufficiently fast..
 
     Arguments:
     ----------
@@ -206,7 +212,7 @@ def regrid_les(
             da_out = da_in.interp(x=dim_x_out, y=dim_y_out, z=dim_z_out, method='nearest', kwargs={'fill_value': 'extrapolate'})
 
             # Save as binary.
-            da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{time:07d}')
+            da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{(time+time_offset):07d}')
 
 
     """
@@ -237,4 +243,115 @@ def regrid_les(
             da_out = da_in.interp(x=dim_x_out, y=dim_y_out, method='nearest', kwargs={'fill_value': 'extrapolate'})
 
             # Save as binary.
-            da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{time:07d}')
+            da_out.values.tofile(f'{path_out}/{field}{name_suffix}.{(time+time_offset):07d}')
+
+
+def link_bcs_from_parent(
+        variables,
+        start_time,
+        end_time,
+        freq,
+        link_wtop,
+        path_in,
+        path_out,
+        time_offset=0,
+        include_end=True):
+    """
+    Link boundary conditions from parent to child directory.
+
+    With time_offset != 0, fields are linked to times with a `time_offset` difference, e.g.;
+    `lbc_thl_out.0007200` -> `lbc_thl.0000000` with `time_offset = -7200`
+    
+    Arguments:
+    ---------
+    variables : list(str)
+        List with prognostic variables.
+    start_time : int
+        Start time of files to link (in parent domain).
+    end_time : int
+        End time of files to link.
+    freq : int
+        Frequency of lateral and top boundary conditions.
+    link_wtop : bool
+        Link top boundary conditions `w`.
+    path_in : str
+        Input path parent domain.
+    path_out : str
+        Output path child domain.
+    time_offset : int, default=0
+        Link files with time offset in file name.
+    include_end : bool, default=True
+        Include `end_time` in linked files.
+
+    Returns:
+        None
+    """
+    logger.info(f'Linking boundary conditions from {path_in} to {path_out}')
+
+    if include_end:
+        end_time += 1
+
+    for var in variables:
+        for edge in ['west', 'north', 'east', 'south']:
+            for time in range(start_time, end_time, freq):
+                otime = time + time_offset
+                src = Path(f'{path_in}/lbc_{var}_{edge}_out.{time:07d}').resolve()
+                dst = Path(f'{path_out}/lbc_{var}_{edge}.{otime:07d}').resolve()
+                os.symlink(src, dst) 
+
+    if link_wtop:
+        for time in range(start_time, end_time, freq):
+            otime = time + time_offset
+            src = Path(f'{path_in}/w_top_out.{time:07d}').resolve()
+            dst = Path(f'{path_out}/w_top.{otime:07d}').resolve()
+            os.symlink(src, dst) 
+
+
+def link_buffer_from_parent(
+        variables,
+        start_time,
+        end_time,
+        freq,
+        path_in,
+        path_out,
+        time_offset=0,
+        include_end=True):
+    """
+    Link 3D buffer from parent to child directory.
+
+    With time_offset != 0, fields are linked to times with a `time_offset` difference, e.g.;
+    `thl_buffer_out.0007200` -> `thl_buffer.0000000` with `time_offset = -7200`
+    
+    Arguments:
+    ---------
+    variables : list(str)
+        List with prognostic variables.
+    start_time : int
+        Start time of files to link (in parent domain).
+    end_time : int
+        End time of files to link.
+    freq : int
+        Frequency of lateral and top boundary conditions.
+    path_in : str
+        Input path parent domain.
+    path_out : str
+        Output path child domain.
+    time_offset : int, default=0
+        Link files with time offset in file name.
+    include_end : bool, default=True
+        Include `end_time` in linked files.
+
+    Returns:
+        None
+    """
+    logger.info(f'Linking 3D buffer from {path_in} to {path_out}')
+
+    if include_end:
+        end_time += 1
+
+    for var in variables:
+        for time in range(start_time, end_time, freq):
+            otime = time + time_offset
+            src = Path(f'{path_in}/{var}_buffer_out.{time:07d}').resolve()
+            dst = Path(f'{path_out}/{var}_buffer.{otime:07d}').resolve()
+            os.symlink(src, dst) 
