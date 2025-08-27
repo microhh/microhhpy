@@ -46,7 +46,7 @@ def setup_interpolations(
         lon_in,
         lat_in,
         proj_pad,
-        dtype):
+        float_type):
     """
     Calculate horizontal interpolation factors at all staggered grid locations.
     Horizonal only, so `w` factors equal to scalar factors.
@@ -59,8 +59,8 @@ def setup_interpolations(
         Latitudes of grid points.
     proj_pad : microhhpy.spatial.Projection instance
         Spatial projection.
-    dtype : numpy float type, optional
-        Data type output arrays.
+    float_type : numpy float type, np.float32 or np.float64
+        Floating point precision.
 
     Returns:
     -------
@@ -68,13 +68,13 @@ def setup_interpolations(
     """
 
     if_u = Rect_to_curv_interpolation_factors(
-        lon_in, lat_in, proj_pad.lon_u, proj_pad.lat_u, dtype)
+        lon_in, lat_in, proj_pad.lon_u, proj_pad.lat_u, float_type)
 
     if_v = Rect_to_curv_interpolation_factors(
-        lon_in, lat_in, proj_pad.lon_v, proj_pad.lat_v, dtype)
+        lon_in, lat_in, proj_pad.lon_v, proj_pad.lat_v, float_type)
 
     if_s = Rect_to_curv_interpolation_factors(
-        lon_in, lat_in, proj_pad.lon, proj_pad.lat, dtype)
+        lon_in, lat_in, proj_pad.lon, proj_pad.lat, float_type)
 
     return if_u, if_v, if_s
 
@@ -115,7 +115,7 @@ def parse_scalar(
     domain,
     kstart_buffer,
     output_dir,
-    dtype):
+    float_type):
     """
     Parse a single scalar for a single time step.
     Creates both the initial field (t=0 only) and lateral boundary conditions.
@@ -156,7 +156,7 @@ def parse_scalar(
         Start index of the buffer in the vertical direction.
     output_dir : str
         Output directory.
-    dtype : np.float32 or np.float64
+    float_type : np.float32 or np.float64
         Floating point precision.
 
     Returns
@@ -169,7 +169,7 @@ def parse_scalar(
     n_pad = domain.n_pad
 
     # Keep creation of 3D field here, for parallel/async exectution..
-    fld_les = np.empty((z_les.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+    fld_les = np.empty((z_les.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=float_type)
 
     # Lazily load data in case xarray data is provided.
     if isinstance(fld_in, xr.DataArray):
@@ -185,7 +185,7 @@ def parse_scalar(
         ip_fac.fy,
         z_les,
         z_in,
-        dtype)
+        float_type)
 
     # Apply Gaussian filter.
     if sigma_n > 0:
@@ -236,7 +236,7 @@ def parse_momentum(
     kstart_buffer,
     kstarth_buffer,
     output_dir,
-    dtype):
+    float_type):
     """
     Parse all momentum fields for a single time step..
     Creates both the initial field (t=0 only) and lateral boundary conditions.
@@ -295,7 +295,7 @@ def parse_momentum(
         Start index (half levels) of the buffer in the vertical direction.
     output_dir : str
         Output directory.
-    dtype : np.float32 or np.float64
+    float_type : np.float32 or np.float64
         Floating point precision.
 
     Returns
@@ -308,9 +308,9 @@ def parse_momentum(
     n_pad = domain.n_pad
 
     # Keep creation of 3D field here, for parallel/async exectution..
-    u = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
-    v = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
-    w = np.empty((zh.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+    u = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=float_type)
+    v = np.empty((z.size,  domain.proj_pad.jtot, domain.proj_pad.itot), dtype=float_type)
+    w = np.empty((zh.size, domain.proj_pad.jtot, domain.proj_pad.itot), dtype=float_type)
 
     # Lazily load data in case xarray data is provided.
     if isinstance(u_in, xr.DataArray):
@@ -330,7 +330,7 @@ def parse_momentum(
         ip_u.fy,
         z,
         z_in,
-        dtype)
+        float_type)
 
     interp_rect_to_curv_kernel(
         v,
@@ -341,7 +341,7 @@ def parse_momentum(
         ip_v.fy,
         z,
         z_in,
-        dtype)
+        float_type)
 
     interp_rect_to_curv_kernel(
         w,
@@ -352,7 +352,7 @@ def parse_momentum(
         ip_s.fy,
         zh,
         z_in,
-        dtype)
+        float_type)
 
     # Apply Gaussian filter.
     if sigma_n > 0:
@@ -450,7 +450,7 @@ def parse_pressure(
         domain,
         time,
         output_dir,
-        dtype):
+        float_type):
     """
     Interpolate 3D pressure field from host model to top-of-domain (TOD) in LES.
 
@@ -470,7 +470,7 @@ def parse_pressure(
         Time in seconds since start of experiment.
     output_dir : str
         Output directory files.
-    dtype : np.float32 or np.float64
+    float_type : np.float32 or np.float64
         Floating point precision.
 
     returns:
@@ -479,7 +479,7 @@ def parse_pressure(
     """
     logger.debug(f'Processing TOD pressure at t={time}.')
 
-    p_les = np.empty((domain.proj_pad.jtot, domain.proj_pad.itot), dtype=dtype)
+    p_les = np.empty((domain.proj_pad.jtot, domain.proj_pad.itot), dtype=float_type)
 
     # Lazily load data in case xarray data is provided.
     if isinstance(p_in, xr.DataArray):
@@ -494,7 +494,7 @@ def parse_pressure(
         ip_s.fy,
         zsize,
         z_in,
-        dtype)
+        float_type)
 
     # Save pressure at top of domain without ghost cells.
     n = domain.n_pad
@@ -531,7 +531,7 @@ def create_input_from_regular_latlon(
         name_suffix='',
         output_dir='.',
         ntasks=8,
-        dtype=np.float64):
+        float_type=np.float64):
     """
     Generate all required MicroHH input from large-scale models
     using a regular lat-lon grid (i.e. a grid where lat/lon are 1D arrays).
@@ -585,7 +585,7 @@ def create_input_from_regular_latlon(
         Output directory path. Default is '.'.
     ntasks : int, optional
         Number of parallel tasks. Default is 8.
-    dtype : np.float32 or np.float64, optional
+    float_type : np.float32 or np.float64, optional
         Floating point precision. Default is np.float64.
 
     Returns
@@ -599,10 +599,10 @@ def create_input_from_regular_latlon(
     time_in = time_in.astype(np.int32)
 
     # Setup vertical grid. Definition has to perfectly match MicroHH's vertical grid to get divergence free fields.
-    gd = calc_vertical_grid_2nd(z, zsize, remove_ghost=True, dtype=dtype)
+    gd = calc_vertical_grid_2nd(z, zsize, remove_ghost=True, float_type=float_type)
 
     # Setup horizontal interpolations (indexes and factors).
-    ip_u, ip_v, ip_s = setup_interpolations(lon_in, lat_in, proj_pad, dtype=dtype)
+    ip_u, ip_v, ip_s = setup_interpolations(lon_in, lat_in, proj_pad, float_type=float_type)
 
     # Setup spatial filtering.
     sigma_n = int(np.ceil(sigma_h / proj_pad.dx))
@@ -625,7 +625,7 @@ def create_input_from_regular_latlon(
         gd['zh'][:-1],
         domain.n_ghost,
         domain.n_sponge,
-        dtype=dtype)
+        dtype=float_type)
 
     # Numpy slices of lateral boundary conditions.
     lbc_slices = setup_lbc_slices(domain.n_ghost, domain.n_sponge)
@@ -648,7 +648,7 @@ def create_input_from_regular_latlon(
                  domain,
                  time_in[t],
                  output_dir,
-                 dtype)
+                 float_type)
             )
 
         def parse_pressure_wrapper(args):
@@ -693,7 +693,7 @@ def create_input_from_regular_latlon(
                     domain,
                     kstart_buffer,
                     output_dir,
-                    dtype))
+                    float_type))
 
     def parse_scalar_wrapper(args):
         return parse_scalar(*args)
@@ -743,7 +743,7 @@ def create_input_from_regular_latlon(
                 kstart_buffer,
                 kstarth_buffer,
                 output_dir,
-                dtype))
+                float_type))
 
         def parse_momentum_wrapper(args):
             return parse_momentum(*args)
@@ -760,4 +760,4 @@ def create_input_from_regular_latlon(
     """
     Write lateral boundary conditions to file.
     """
-    lbc_ds_to_binary(lbc_ds, output_dir, dtype)
+    lbc_ds_to_binary(lbc_ds, output_dir, float_type)

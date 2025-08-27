@@ -67,7 +67,7 @@ def calc_moist_basestate(
     thl_in = thl.copy()
     qt_in = qt.copy()
 
-    gd = calc_vertical_grid_2nd(z, zsize, dtype=dtype, remove_ghost=False)
+    gd = calc_vertical_grid_2nd(z, zsize, float_type=dtype, remove_ghost=False)
 
     z = gd['z']
 
