@@ -1,11 +1,11 @@
 TUV inputs:
 ==================================================================
 inpfil =      microh   outfil =      microh   nstr =             4
-lat =         50.100   lon =          5.100   tmzone =         0.0
-iyear =         2020   imonth =           9   iday =             3
+lat =         11.340   lon =        108.830   tmzone =         0.0
+iyear =         2021   imonth =           3   iday =             3
 zstart =       0.000   zstop =      120.000   nz =             121
 wstart =     120.000   wstop =      735.000   nwint =         -156
-tstart =       0.000   tstop =       18.000   nt =              73
+tstart =       6.000   tstop =        8.000   nt =               9
 lzenit =           F   alsurf =       0.100   psurf =       -999.0
 o3col =      300.000   so2col =       0.000   no2col =       0.000
 taucld =       0.000   zbase =        4.000   ztop =         5.000
