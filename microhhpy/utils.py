@@ -32,12 +32,12 @@ from microhhpy.logger import logger
 def get_data_file(file_name):
     """
     Get path to data file with Python version compatibility.
-    
+
     Parameters:
     -----------
     file_name : str
         Name of the data file in microhhpy.data package
-        
+
     Returns:
     --------
     path : pathlib.Path
@@ -45,10 +45,10 @@ def get_data_file(file_name):
     """
     data_files = files('microhhpy.data')
     data_path = data_files / file_name
-    
+
     if not data_path.is_file():
         logger.critical(f'Cannot find {file_name} in {data_files}')
-    
+
     return Path(str(data_path))
 
 
