@@ -20,10 +20,11 @@
 #  along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from pathlib import Path
 try:
-    from importlib.resources import files, as_file
+    from importlib.resources import files
 except ImportError:
-    from importlib_resources import files, as_file
+    from importlib_resources import files
 
 from microhhpy.logger import logger
 
@@ -42,8 +43,13 @@ def get_data_file(file_name):
     path : pathlib.Path
         Path to the data file
     """
-    with as_file(files('microhhpy.data') / file_name) as path:
-        return path
+    data_files = files('microhhpy.data')
+    data_path = data_files / file_name
+    
+    if not data_path.is_file():
+        logger.critical(f'Cannot find {file_name} in {data_files}')
+    
+    return Path(str(data_path))
 
 
 def check_domain_decomposition(itot, jtot, ktot, npx, npy):

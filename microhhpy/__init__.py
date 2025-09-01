@@ -3,7 +3,6 @@
 # TODO: don't import *, Ruff complains about that.
 
 from .chem import *
-from .data import *
 from .interp import *
 from .io import *
 from .land import *
