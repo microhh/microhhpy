@@ -37,9 +37,39 @@ mu0_min = 1e-6        # Minimum value used for cos(sza)
 sigma_b = 5.67e-8     # Boltzmann constant (W m-1 K-1)
 ep = Rd / Rv          # Ratio gas constants dry air and water vapor (-)
 
-mm_air = 28.9647      # Molar mass of dry air (kg kmol-1)
-mm_h2o = 18.01528     # Molar mass of H2O (kg kmol-1)
-mm_co2 = 44.0095      # Molar mass of CO2 (kg kmol-1)
-mm_no  = 30.01        # Molar mass of NO (kg kmol-1)
-mm_no2 = 46.0055      # Molar mass of NO2 (kg kmol-1)
-mm_co  = 28.01        # Molar mass of CO (kg kmol-1)
+# Molecular masses chemical species.
+# From: http://dx.doi.org/10.5194/gmd-8-975-2015-supplement
+xm_cams = {
+    'o3': 48.0,
+    'no2': 46.0,
+    'co': 28.0,
+    'hcho': 30.0,
+    'h2o2': 34.0,
+    'hno3': 63.0,
+    'ch3ooh': 48.0,
+    'par': 12.0,
+    'c2h4': 28.0,
+    'ole': 24.0,
+    'rooh': 47.0,
+    'c5h8': 68.1,
+    'no': 30.0,
+    'ho2': 33.0,
+    'ch3o2': 47.0,
+    'oh': 17.0,
+    'no3': 62.0,
+    'n2o5': 76.0,
+    'ch3oh': 31.01,
+    'c2h6': 30.02,
+    'c2h5oh': 46.02,
+    'c3h8': 44.03,
+    'c3h6': 42.03,
+    'c10h16': 136.0,
+    'c2o3': 75.0,
+    'aco2': 58.0,
+    'ic3h7o2': 75.0,
+    'hypropo2': 91.0,
+    # Bonus:
+    'air': 28.9647,
+    'h2o': 18.01528,
+    'co2': 44.0095
+}
