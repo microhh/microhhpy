@@ -7,6 +7,7 @@ from .interp import *
 from .io import *
 from .land import *
 from .spatial import *
+from .rad import *
 from .real import *
 from .thermo import *
 from .utils import *
