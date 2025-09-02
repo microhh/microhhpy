@@ -61,7 +61,7 @@ class Domain:
               `xstart_in_parent=..` and `ystart_in_parent=..` or `center_in_parent=True` options.
 
         Parameters:
-        -----------
+        ----------
         xsize : float
             Domain size in x-direction (m).
         ysize : float
@@ -104,7 +104,7 @@ class Domain:
             Work directory/path of experiment.
 
         Returns:
-        --------
+        -------
         None
         """
 
@@ -260,7 +260,7 @@ def plot_domains(
     Plot position of all domains.
 
     Parameters:
-    -----------
+    ----------
     domains : list(Domain)
         List of `Domain` instances.
     use_projection : bool, optional
@@ -273,7 +273,7 @@ def plot_domains(
         Scatter half level lon/lat points, to check match parent/child position.
 
     Returns:
-    --------
+    -------
     None
     """
 

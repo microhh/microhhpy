@@ -44,7 +44,7 @@ def calc_moist_basestate(
     specific humidity, and surface pressure.
 
     Parameters:
-    -----------
+    ----------
     thl : np.ndarray, shape (1,)
         Liquid water potential temperature on full levels (K).
     qt : np.ndarray, shape (1,)
@@ -58,8 +58,8 @@ def calc_moist_basestate(
     dtype : np.dtype
         Floating point precision, np.float32 or np.float64.
 
-    returns:
-    --------
+    Returns:
+    -------
     base_state: dict
         Dictionary with base state fields.
     """
@@ -186,7 +186,7 @@ def save_moist_basestate(
     Save moist thermodynamic base state to binary file.
 
     Parameters:
-    -----------
+    ----------
     base_state : dict
         Dictionary with base state fields.
     file_name : str
@@ -216,14 +216,14 @@ def read_moist_basestate(
     Read moist thermodynamic base state from binary file.
 
     Parameters:
-    -----------
+    ----------
     file_name : str
         Path to the input binary file.
     dtype : np.dtype
         Floating point precision, np.float32 or np.float64.
 
     Returns:
-    --------
+    -------
     base_state : dict
         Dictionary with base state fields.
     """
@@ -257,7 +257,7 @@ def save_basestate_density(
     Save base state density to binary file.
 
     Parameters:
-    -----------
+    ----------
     rho : np.ndarray, shape (1,)
         Density at full levels.
     rhoh : np.ndarray, shape (1,)
@@ -277,14 +277,14 @@ def read_basestate_density(
     Read base state density from binary file.
 
     Parameters:
-    -----------
+    ----------
     file_name : str
         Path to the input binary file.
     dtype : np.dtype
         Floating point precision, np.float32 or np.float64.
 
     Returns:
-    --------
+    -------
     rho : np.ndarray, shape (1,)
         Density at full levels.
     rhoh : np.ndarray, shape (1,)

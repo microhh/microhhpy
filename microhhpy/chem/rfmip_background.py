@@ -34,7 +34,7 @@ def get_rfmip_species(lat, lon, exp):
     Get background chemical concentration from RFMIP intercomparison.
     
     Parameters:
-    -----------
+    ----------
     lat : float
         Target latitude
     lon : float
@@ -43,7 +43,7 @@ def get_rfmip_species(lat, lon, exp):
         RFMIP experiment, 0=present day, 1=pre-industrial, 2=..
     
     Returns:
-    --------
+    -------
     rfmip_dict : dict
         Dictionary with RFMIP species.
     """

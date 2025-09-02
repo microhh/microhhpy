@@ -60,8 +60,8 @@ def correct_div_uv(
 
     NOTE: This function modifies `u` and `v` in-place.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     u : np.ndarray, shape (3,)
         Zonal wind on LES grid.
     v : np.ndarray, shape (3,)

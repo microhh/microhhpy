@@ -41,7 +41,7 @@ def read_hihydrosoil_subtop(geotiff_path, lon0, lon1, lat0, lat1):
     Top soil = 0 - 30 cm
     Sub soil = 30 - 200 cm
 
-    Arguments:
+    Parameters:
     ----------
     geotiff_path : str
         Path to top/sub-soil GeoTIFF files.
@@ -55,7 +55,7 @@ def read_hihydrosoil_subtop(geotiff_path, lon0, lon1, lat0, lat1):
         Bounding box latitude north
 
     Returns:
-    --------
+    -------
     ds : xarray.Dataset
         HiHydroSoil parameters in Xarray Dataset form,
         with separate variables for top and subsoil.

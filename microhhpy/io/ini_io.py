@@ -63,7 +63,7 @@ def read_ini(namelist_file, ducktype=True):
     """
     Read a MicroHH .ini file into a dictionary-like object.
 
-    Arguments:
+    Parameters:
     ----------
     namelist_file : str
         Full path to the .ini file.
@@ -72,7 +72,7 @@ def read_ini(namelist_file, ducktype=True):
         If False, keep values as strings. Default is True.
 
     Returns:
-    --------
+    -------
     ini : nested dictionary
         Dictionary containing the groups and variables from the .ini file.
     """
@@ -102,7 +102,7 @@ def save_ini(ini, ini_file, clobber=True):
     """
     Write a nested dictionary back to a MicroHH .ini file.
 
-    Arguments:
+    Parameters:
     ----------
     ini : nested dictionary
         Dictionary containing the groups and variables to write.
@@ -112,7 +112,7 @@ def save_ini(ini, ini_file, clobber=True):
         If True, allow overwriting an existing file. Default is True.
 
     Returns:
-    --------
+    -------
     None
     """
     
@@ -137,7 +137,7 @@ def check_ini(ini):
     """
     Check if any of the values in the nested `ini` dict are None.
 
-    Arguments:
+    Parameters:
     ----------
     ini : nested dictionary
         Dictionary containing the groups and variables.

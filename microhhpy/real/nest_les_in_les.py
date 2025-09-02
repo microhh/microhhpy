@@ -68,7 +68,7 @@ def regrid_les(
 
     NOTE: uses Xarray for interpolations, so not the fastest approach, but so far sufficiently fast..
 
-    Arguments:
+    Parameters:
     ----------
     fields_3d : dict with name : time(s)
         3D fields to interpolate, with time stamps.
@@ -116,7 +116,7 @@ def regrid_les(
         Save output fields with `name_suffix` appended (e.g. `thl_somename.0000000`)
 
     Returns:
-    --------
+    -------
     None
     """
     logger.info(f'Regridding LES fields from {path_in} to {path_out}.')
@@ -262,8 +262,8 @@ def link_bcs_from_parent(
     With time_offset != 0, fields are linked to times with a `time_offset` difference, e.g.;
     `lbc_thl_out.0007200` -> `lbc_thl.0000000` with `time_offset = -7200`
     
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     variables : list(str)
         List with prognostic variables.
     start_time : int
@@ -322,8 +322,8 @@ def link_buffer_from_parent(
     With time_offset != 0, fields are linked to times with a `time_offset` difference, e.g.;
     `thl_buffer_out.0007200` -> `thl_buffer.0000000` with `time_offset = -7200`
     
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     variables : list(str)
         List with prognostic variables.
     start_time : int

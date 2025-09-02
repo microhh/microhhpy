@@ -111,8 +111,8 @@ def calc_zenith_angles(lat, lon, dates):
     dates : list
         List or array with dates. Can be `datetime`, `np.datetime64`, or `pd.Timestamp`.
 
-    Return:
-    ------
+    Returns:
+    -------
     cos_sza : np.array(float)
         Array with cosine of zenith angle values.
     """

@@ -42,7 +42,7 @@ def interp_rect_to_curv_latlon_2d(
     """
     Wrapper for RegularGridInterpolator.
 
-    Arguments:
+    Parameters:
     ----------
     fld_in : np.ndarray, ndim=2 
         Input field.
@@ -60,7 +60,7 @@ def interp_rect_to_curv_latlon_2d(
         Interpolation method.
 
     Returns:
-    --------
+    -------
     fld_out : np.ndarray, shape(2,)
         Interpolated field.
     """

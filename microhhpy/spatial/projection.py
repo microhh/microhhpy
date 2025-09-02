@@ -22,7 +22,7 @@ class Projection:
         `(lon_v, lat_v)`: lower-center edges of grid point (v location).
         `(lon_h, lat_h)`: lower-left edges of grid point (u,v location).
 
-        Arguments:
+        Parameters:
         ----------
         xsize : float
             Domain size LES in x-direction (m).

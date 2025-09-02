@@ -48,7 +48,7 @@ def save_case_input(
     """
     Create a MicroHH NetCDF input file from dictionaries containing variable data.
 
-    Arguments:
+    Parameters:
     ----------
     case_name : str
         Name of the simulation case.
@@ -78,7 +78,7 @@ def save_case_input(
         Output directory. Default is '' (current directory).
 
     Notes:
-    ------
+    -----
     Output file: '{output_dir}/{case_name}_input.nc'
     """
 

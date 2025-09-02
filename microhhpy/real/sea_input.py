@@ -60,7 +60,7 @@ def create_sst_from_regular_latlon(
         Floating point precision.
 
     Returns:
-    --------
+    -------
     sst_out : np.ndarray, shape=(lon_out, lat_out)
         Processed and interpolated SSTs.
     """

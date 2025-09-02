@@ -36,7 +36,7 @@ def extrapolate_onto_mask(data, mask, max_distance=5):
     A nearest-neighbour interpolation is used to ensure that no new extremes are created.
     
     Parameters:
-    -----------
+    ----------
     data : np.ndarray, shape(j, i)
         Input field.
     mask : np.ndarray, bool, same shape as data
@@ -45,7 +45,7 @@ def extrapolate_onto_mask(data, mask, max_distance=5):
         Maximum distance in grid cells to extrapolate
     
     Returns:
-    --------
+    -------
     np.ndarray
         Data with values extrapolated onto nearby masked areas
     """

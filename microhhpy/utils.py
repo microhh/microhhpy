@@ -34,12 +34,12 @@ def get_data_file(file_name):
     Get path to data file with Python version compatibility.
 
     Parameters:
-    -----------
+    ----------
     file_name : str
         Name of the data file in microhhpy.data package
 
     Returns:
-    --------
+    -------
     path : pathlib.Path
         Path to the data file
     """

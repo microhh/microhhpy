@@ -46,8 +46,8 @@ def create_lbc_ds(
     """
     Create an Xarray Dataset with lateral boundary conditions for MicroHH.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     fields : list of str
         Field names to include.
     time : np.ndarray, shape (1,)
@@ -188,8 +188,8 @@ def lbc_ds_to_binary(ds, path, dtype):
     """
     Save an Xarray Dataset with lateral boundary conditions to binary files for MicroHH.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     ds : xr.Dataset
         Dataset with boundary conditions.
     path : str
@@ -214,8 +214,8 @@ def setup_lbc_slices(n_ghost, n_sponge):
     Setup dictionary with slices of lateral boundary conditions in full 3D fields.
     The LBCs contain both the ghost and lateral sponge cells.
     
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     n_ghost : int
         Number of ghost cells.
     n_sponge : int

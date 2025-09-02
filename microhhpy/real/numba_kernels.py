@@ -33,8 +33,8 @@ def blend_w_to_zero_at_sfc(w, zh, zmax):
     """
     Blend `w` towards zero at the surface, from a height `zmax` down.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     w : np.ndarray, shape (3,)
         Large-scale vertical velocity.
     zh : np.ndarray, shape (3,)
@@ -73,8 +73,8 @@ def calc_w_from_uv(
     Calculate vertical velocity `w` from horizontal wind components `u` and `v` and the
     continuity equation, with w==0 at a lower boundary condition.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     w : np.ndarray, shape (3,)
         Vertical velocity field.
     u : np.ndarray, shape (3,)
@@ -135,8 +135,8 @@ def check_divergence(
     """
     Calculate the maximum mass divergence in the LES domain using the continuity equation.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     u : np.ndarray, shape (3,)
         Zonal wind field.
     v : np.ndarray, shape (3,)
@@ -207,8 +207,8 @@ def block_perturb_field(
     """
     Add random perturbations to field, in block sizes in all spatial directions of size `block_size`.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     fld : np.ndarray, shape (3,)
         Field to perturb.
     z : np.ndarray, shape (1,)

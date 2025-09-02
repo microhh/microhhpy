@@ -35,7 +35,7 @@ def xr_open_groups(nc_file, groups=None):
     are loaded.
 
     Parameters:
-    -----------
+    ----------
     nc_file : str
         Full path to NetCDF file.
     groups : list

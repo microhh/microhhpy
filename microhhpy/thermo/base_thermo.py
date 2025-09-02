@@ -40,13 +40,13 @@ def exner(p):
     """
     Calculate exner function (p/p0)**(Rd/cp)
 
-    Arguments:
+    Parameters:
     ----------
     p : float
         Pressure in Pa.
 
     Returns:
-    --------
+    -------
     float
         Exner function value.
     """
@@ -58,13 +58,13 @@ def esat_liq(T):
     """
     Calculate saturated water vapor pressure over liquid.
 
-    Arguments:
+    Parameters:
     ----------
     T : float
         Absolute temperature in K.
 
     Returns:
-    --------
+    -------
     float
         Saturation vapor pressure Pa.
     """
@@ -77,13 +77,13 @@ def esat_ice(T):
     """
     Calculate saturated water vapor pressure over ice.
 
-    Arguments:
+    Parameters:
     ----------
     T : float
         Absolute temperature in K.
 
     Returns:
-    --------
+    -------
     float
         Saturation vapor pressure Pa.
     """
@@ -96,7 +96,7 @@ def qsat_liq(p, T):
     """
     Calculate saturation specific humidity over liquid water.
 
-    Arguments:
+    Parameters:
     ----------
     p : float
         Pressure in Pa.
@@ -104,7 +104,7 @@ def qsat_liq(p, T):
         Absolute temperature in K.
 
     Returns:
-    --------
+    -------
     float
         Saturation specific humidity in kg/kg.
     """
@@ -116,7 +116,7 @@ def qsat_ice(p, T):
     """
     Calculate saturation specific humidity over ice.
 
-    Arguments:
+    Parameters:
     ----------
     p : float
         Pressure in Pa.
@@ -124,7 +124,7 @@ def qsat_ice(p, T):
         Absolute temperature in K.
 
     Returns:
-    --------
+    -------
     float
         Saturation specific humidity in kg/kg.
     """
@@ -153,7 +153,7 @@ def qsat(p, T):
     """
     Calculate saturation specific humidity.
 
-    Arguments:
+    Parameters:
     ----------
     p : float
         Pressure in Pa.
@@ -161,7 +161,7 @@ def qsat(p, T):
         Absolute temperature in K.
 
     Returns:
-    --------
+    -------
     float
         Saturation specific humidity in kg/kg.
     """

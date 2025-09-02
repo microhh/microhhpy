@@ -32,7 +32,7 @@ def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, float_type=np.float64):
     """
     Calculate vertical grid, identical to definition in MicroHH.
 
-    Arguments:
+    Parameters:
     ----------
     z : np.ndarray, shape (1,)
         Array with input full level heights, like in `case_input.nc`.
@@ -44,7 +44,7 @@ def calc_vertical_grid_2nd(z, zsize, remove_ghost=True, float_type=np.float64):
         Output datatype of arrays.
 
     Returns:
-    --------
+    -------
     vertical grid : dict
         Dictionary containing grid properties.
     """
@@ -114,7 +114,7 @@ def refine_grid_for_nesting(z, zh, ratio):
     2. Find full level heights which linearly interpolated result in the half level
        heights from the previous step.
 
-    Arguments:
+    Parameters:
     ---------
     z : np.ndarray, shape(1,)
         Input full level heights.

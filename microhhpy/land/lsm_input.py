@@ -46,7 +46,7 @@ class Land_surface_input:
         Data structure for the required input for the MicroHH LSM.
 
         Parameters:
-        -----------
+        ----------
             itot : int
                 Number of grid points in x-direction.
             jtot : int
@@ -66,7 +66,7 @@ class Land_surface_input:
                 Floating point precision used by MicroHH.
 
         Returns:
-        --------
+        -------
             None
         """
 
@@ -149,7 +149,8 @@ class Land_surface_input:
         """
         Write all required MicroHH input fields in binary format
 
-        Arguments:
+        Parameters:
+        ----------
             path : str
                 File path of the output.
             allow_overwrite : bool, default: False
@@ -177,7 +178,8 @@ class Land_surface_input:
         """
         Save MicroHH input to NetCDF file. Not used by MicroHH, but useful for visualisation/debug.
 
-        Arguments:
+        Parameters:
+        ----------
             nc_file : str
                 Name of output NetCDF file.
             allow_overwrite : bool, default: False

@@ -117,7 +117,7 @@ class Rect_to_curv_interpolation_factors:
     Class to calculate horizontal interpolation indexes and factors, for interpolating from a
     rectilinear input grid (1D arrays for lat/lon) onto a non-rectilinear grid (2D arrays for lat/lon).
 
-    Arguments:
+    Parameters:
     ---------
     lon_in : np.ndarray, shape (1,)
         Input longitude on rectilinear grid.
@@ -181,7 +181,7 @@ def interp_rect_to_curv_kernel(
     NOTE: If `fld_out.ndim == 2` and `fld_in.ndim == 3`, `z_out` needs to be a float.
           In this case, a 3D input fields is interpolated to a single fixed height.
 
-    Arguments:
+    Parameters:
     ---------
     fld_out : np.ndarray, shape (2,) or shape (3,)
         Output field on curve-linear grid.

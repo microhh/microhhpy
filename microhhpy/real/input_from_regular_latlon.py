@@ -51,8 +51,8 @@ def setup_interpolations(
     Calculate horizontal interpolation factors at all staggered grid locations.
     Horizonal only, so `w` factors equal to scalar factors.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     lon_in : np.ndarray, shape (2,)
         Longitudes of grid points.
     lat_in : np.ndarray, shape (2,)
@@ -454,8 +454,8 @@ def parse_pressure(
     """
     Interpolate 3D pressure field from host model to top-of-domain (TOD) in LES.
 
-    Arguments:
-    ---------
+    Parameters:
+    ----------
     p_in : np.ndarray, shape (3,)
         Pressure field.
     z_in : np.ndarray, shape (3,)
