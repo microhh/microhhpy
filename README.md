@@ -1,5 +1,9 @@
 # MicroHHpy
 
+---
+[![PyPi Badge](https://img.shields.io/pypi/v/microhhpy.svg?colorB=blue)](https://pypi.python.org/pypi/microhhpy/)
+---
+
 Python package with utility functions for working with MicroHH LES/DNS.
 
 > [!IMPORTANT]  
