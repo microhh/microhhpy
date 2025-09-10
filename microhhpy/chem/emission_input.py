@@ -25,6 +25,7 @@
 # Third-party.
 import numpy as np
 from numba import njit
+from scipy.optimize import curve_fit
 
 # Local library
 
@@ -114,9 +115,9 @@ class Emission_input:
         or:
             `emiss.add_point(field='s1', strength=1, time=0, x0=400, y0=800, z0=50)`
 
-        Parameters
+        Parameters:
         ----------
-        fields : list
+        fields : list(str)
             List with scalar fields that have an emission.
         times : np.ndarray, shape (1,)
             Array with output times (s).
@@ -318,3 +319,30 @@ class Emission_input:
         for name, fld in self.data.items():
             for t,time in enumerate(self.times):
                 fld[t,:].tofile(f'{path}/{name}_emission.{time:07d}')
+
+
+def gauss(x, H, A, x0, sigma):
+    return H + A * np.exp(-(x - x0)**2 / sigma**2)
+
+def fit_gaussian_curve(x, y):
+    """
+    Fit Gaussian curve through profile.
+
+    `y = H + A * exp(-(x-x0)**2 / sigma**2)`
+
+    Parameters:
+    ----------
+    x : np.ndarray(float, ndim=1)
+        x-coordinates.
+    y : np.ndarray(float, ndim=1)
+        y-coordinates.
+
+    Returns:
+    -------
+    params : dict
+        Dictionary with curve fitted parameters.
+    """
+    mean = sum(x * y) / sum(y)
+    sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
+    popt, pcov = curve_fit(gauss, x, y, p0=[min(y), max(y), mean, sigma])
+    return dict(H=popt[0], A=popt[1], x0=popt[2], sigma=popt[3])
