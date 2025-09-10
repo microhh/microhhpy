@@ -4,22 +4,33 @@
 [![PyPi Badge](https://img.shields.io/pypi/v/microhhpy.svg?colorB=blue)](https://pypi.python.org/pypi/microhhpy/)
 ---
 
+### Description
+
 Python package with utility functions for working with MicroHH LES/DNS.
 
+The main purpose of `microhhpy` is to simplify complex workflows and case setups, such as setting up nested simulations with open boundary conditions. Basic scripts for handling MicroHH input and output are still available in `microhh/python/microhh_tools.py` and other scripts like `cross_to_nc.py`.
+
 > [!IMPORTANT]  
-> This Python package is available on PyPI (https://pypi.org/project/microhhpy/), but mostly as a placeholder. Since `microhhpy` is actively developing and unstable, the PyPI version may be outdated.
+> Like `microhh` itself, this Python package has only been tested in Unix environments.
 
 ### Usage
-Either add the `microhhpy` package location to your `PYTHONPATH`:
 
-    export PYTHONPATH="${PYTHONPATH}:/path/to/microhhpy"
+The recommended way to install `microhhpy` is via PyPI:
 
-Or specify the path using `sys`, before importing `microhhpy`:
+    pip install microhhpy
 
-    import sys
-    sys.path.append('/path/to/microhhpy')
+For development, you can clone the repository and make `microhhpy` available in one of two ways:
 
-Now `microhhpy` should be available as an import, e.g.:
+1. Add it to your `PYTHONPATH`:
+
+       export PYTHONPATH="${PYTHONPATH}:/path/to/microhhpy"
+
+2. Or append the path directly in your Python script before importing:
+
+       import sys
+       sys.path.append('/path/to/microhhpy')
+
+Once set up, you can import `microhhpy` modules, for example:
 
     from microhhpy.spatial import Domain
     from microhhpy.spatial import Projection
