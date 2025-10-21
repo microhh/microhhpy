@@ -614,12 +614,8 @@ def make_divergence_free_dct(u, v, w, rho, rhoh, dx, dy, dz, dzi, dzhi, solve_w,
 
     # Correct global mass inbalance.
     net_in = check_global_mass_inbalance(u, v, w, rho, rhoh, dz, dx, dy)
-
     adjust_boundary_mass_flux(u, v, w, rho, rhoh, dz, dx, dy, itot, jtot, ktot)
-
     net_out = check_global_mass_inbalance(u, v, w, rho, rhoh, dz, dx, dy)
-
-    logger.debug(f'Mass flux correction: net inbalance input: {net_in} kg/s, after correction: {net_out} kg/s.')
 
     # Solve pressure.
     solve_pressure_dct(p, u, v, w, ut, vt, wt, rho, rhoh, dx, dy, dz, dzi, dzhi, dt, solve_w, float_type)
@@ -633,4 +629,5 @@ def make_divergence_free_dct(u, v, w, rho, rhoh, dx, dy, dz, dzi, dzhi, solve_w,
     w += wt * dt
 
     div,i,j,k = calc_divergence(u, v, w, rho, rhoh, dzi, dxi, dyi, itot, jtot, ktot)
-    logger.debug(f'Max divergence: {div} kg/m3/s @ i={i}, j={j}, k={k}')
+
+    logger.debug(f'Mass inbalance in = {net_in:.1e} kg/s, out = {net_out:.1e} kg/s, max div. = {div} kg/m3/s @ i={i}, j={j}, k={k}')

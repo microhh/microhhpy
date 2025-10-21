@@ -364,6 +364,13 @@ def parse_momentum(
     # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
     blend_w_to_zero_at_sfc(w, zh, zmax=500)
 
+    # DEBUG..
+    if t == 0:
+        print('DEBUG: saving non-fixed velocity fields...')
+        u.tofile('u0.0000000')
+        v.tofile('v0.0000000')
+        w.tofile('w0.0000000')
+
     # Correct horizontal divergence of u and v.
     proj = domain.proj_pad
     correct_div_uv(
