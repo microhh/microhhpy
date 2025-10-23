@@ -2,5 +2,5 @@ from .pressure_solver_dct import solve_pressure_dct, make_divergence_free_dct, c
 
 __all__ = [
         'solve_pressure_dct',
-        'make_divergene_free_dct',
+        'make_divergence_free_dct',
         'calc_divergence']

@@ -34,6 +34,7 @@ from microhhpy.logger import logger
 from microhhpy.interp.interp_kernels import Rect_to_curv_interpolation_factors
 from microhhpy.interp.interp_kernels import interp_rect_to_curv_kernel
 from microhhpy.spatial import calc_vertical_grid_2nd
+from microhhpy.solvers import make_divergence_free_dct
 
 # Local directory
 from .global_help_functions import gaussian_filter_wrapper
@@ -83,17 +84,16 @@ def save_3d_field(
         fld,
         name,
         name_suffix,
-        n_pad,
         output_dir):
     """
-    Save 3D field without ghost cells to file.
+    Save 3D field to file.
     """
     if name_suffix == '':
         f_out = f'{output_dir}/{name}.0000000'
     else:
         f_out = f'{output_dir}/{name}_{name_suffix}.0000000'
 
-    fld[:, n_pad:-n_pad, n_pad:-n_pad].tofile(f_out)
+    fld.tofile(f_out)
 
 
 def parse_scalar(
@@ -201,7 +201,7 @@ def parse_scalar(
 
     # Save 3D field without ghost cells i`n binary format as initial/restart file.
     if t == 0:
-        save_3d_field(fld_les, name, name_suffix, n_pad, output_dir)
+        save_3d_field(fld_les[:, n_pad:-n_pad, n_pad:-n_pad], name, name_suffix, output_dir)
 
     # Save lateral boundaries.
     for loc in ('west', 'east', 'south', 'north'):
@@ -225,16 +225,18 @@ def parse_momentum(
     zh,
     dz,
     dzi,
+    dzhi,
     rho,
     rhoh,
     ip_u,
     ip_v,
     ip_s,
-    lbc_slices,
     sigma_n,
     domain,
     kstart_buffer,
     kstarth_buffer,
+    dx,
+    dy,
     output_dir,
     float_type):
     """
@@ -242,10 +244,9 @@ def parse_momentum(
     Creates both the initial field (t=0 only) and lateral boundary conditions.
 
     Steps:
-    1. Blend w to zero to surface over a certain (500 m) depth.
-    2. Correct horizontal divergence of u and v to match subsidence in LES to ERA5.
-    3. Calculate new vertical velocity w to ensure that the fields are divergence free.
-    4. Check resulting divergence.
+    1. Blend `w` to zero to surface over a certain (currently: 500 m) depth.
+    2. Correct in- and outflow `u,v` to conserve mass on each model level.
+    3. Solve `u,v` with pressure solver to get divergence free fields, conserving `w`.
 
     Parameters
     ----------
@@ -273,6 +274,8 @@ def parse_momentum(
         Full level grid spacing LES.
     dzi : np.ndarray, shape (1,)
         Inverse of full level grid spacing LES.
+    dzhi : np.ndarray, shape (1,)
+        Inverse of half level grid spacing LES.
     rho : np.ndarray, shape (1,)
         Full level base state density.
     rhoh : np.ndarray, shape (1,)
@@ -283,8 +286,6 @@ def parse_momentum(
         Interpolation factors at v location.
     ip_s : `Rect_to_curv_interpolation_factors` instance.
         Interpolation factors at scalar location.
-    lbc_slices : dict
-        Dictionary with Numpy slices for each LBC.
     sigma_n : int
         Width Gaussian filter kernel in LES grid points.
     domain : Domain instance
@@ -293,6 +294,10 @@ def parse_momentum(
         Start index (full levels) of the buffer in the vertical direction.
     kstarth_buffer : int
         Start index (half levels) of the buffer in the vertical direction.
+    dx : float
+        Grid spacing east-west direction.
+    dy : float
+        Grid spacing north-south direction.
     output_dir : str
         Output directory.
     float_type : np.float32 or np.float64
@@ -305,6 +310,9 @@ def parse_momentum(
     logger.debug(f'Processing momentum at t={time}.')
 
     # Short-cuts
+    n_gc = domain.n_ghost
+    n_sp = domain.n_sponge
+    n_lbc = n_gc + n_sp
     n_pad = domain.n_pad
 
     # Keep creation of 3D field here, for parallel/async exectution..
@@ -364,89 +372,56 @@ def parse_momentum(
     # Blend linearly to zero. This also insures that w at the surface is 0.0 m/s.
     blend_w_to_zero_at_sfc(w, zh, zmax=500)
 
+    """
     # DEBUG..
     if t == 0:
         print('DEBUG: saving non-fixed velocity fields...')
         u.tofile('u0.0000000')
         v.tofile('v0.0000000')
         w.tofile('w0.0000000')
+    """
 
-    # Correct horizontal divergence of u and v.
-    proj = domain.proj_pad
-    correct_div_uv(
-        u,
-        v,
-        w,
-        rho,
-        rhoh,
-        dzi,
-        proj.x,
-        proj.y,
-        proj.xsize,
-        proj.ysize,
-        domain.n_pad)
+    # Remove unnecessary padding, but leave one extra cell for
+    # `u` in the east, `v` in the north, and `w` at the top.
+    u = u[:, 1:-1, 1:  ]
+    v = v[:, 1:,   1:-1]
+    w = w[:, 1:-1, 1:-1]
 
-    # NOTE: correcting the horizontal divergence only ensures that the _mean_ vertical velocity
-    # is correct. We still need to calculate a new vertical velocity to ensure that the wind
-    # fields are divergence free at a grid point level.
-    calc_w_from_uv(
-        w,
-        u,
-        v,
-        rho,
-        rhoh,
-        dz,
-        domain.dxi,
-        domain.dyi,
-        domain.istart_pad,
-        domain.iend_pad,
-        domain.jstart_pad,
-        domain.jend_pad,
-        dz.size)
-
-    # Check!
-    div_max, i, j, k = check_divergence(
-        u,
-        v,
-        w,
-        rho,
-        rhoh,
-        domain.dxi,
-        domain.dyi,
-        dzi,
-        domain.istart_pad,
-        domain.iend_pad,
-        domain.jstart_pad,
-        domain.jend_pad,
-        dz.size)
-    logger.debug(f'Maximum divergence in LES domain: {div_max:.3e} at i={i}, j={j}, k={k}')
+    # Solve for divergence free fields. This method only corrects `u,v` and conserves `w`.
+    solve_w = False
+    make_divergence_free_dct(u, v, w, rho, rhoh, dx, dy, dz, dzi, dzhi, solve_w, float_type)
 
     # Save 3D field without ghost cells in binary format as initial/restart file.
     if t == 0:
-        save_3d_field(u[:  ,:,:], 'u', name_suffix, n_pad, output_dir)
-        save_3d_field(v[:  ,:,:], 'v', name_suffix, n_pad, output_dir)
-        save_3d_field(w[:-1,:,:], 'w', name_suffix, n_pad, output_dir)
+        save_3d_field(u[:  , n_gc:-n_gc,  n_gc:-n_pad], 'u', name_suffix, output_dir)
+        save_3d_field(v[:  , n_gc:-n_pad, n_gc:-n_gc ], 'v', name_suffix, output_dir)
+        save_3d_field(w[:-1, n_gc:-n_gc,  n_gc:-n_gc ], 'w', name_suffix, output_dir)
 
     # Save top boundary condition vertical velocity.
-    n = domain.n_pad
     time = int(lbc_ds['time'][t])
-    w[-1, n:-n, n:-n].tofile(f'{output_dir}/w_top.{time:07d}')
+    w_top = w[-1, n_gc:-n_gc, n_gc:-n_gc]
+    w_top.tofile(f'{output_dir}/w_top.{time:07d}')
 
     # Save lateral boundaries.
-    for loc in ('west', 'east', 'south', 'north'):
-        lbc_slice = lbc_slices[f'u_{loc}']
-        lbc_ds[f'u_{loc}'][t,:,:,:] = u[lbc_slice]
+    lbc_ds['u_west'] [t,:,:,:] = u[:, :, :n_lbc+1]
+    lbc_ds['u_east'] [t,:,:,:] = u[:, :, -n_lbc-1:-1]
+    lbc_ds['u_south'][t,:,:,:] = u[:, :n_lbc, :-1]
+    lbc_ds['u_north'][t,:,:,:] = u[:, -n_lbc:, :-1]
 
-        lbc_slice = lbc_slices[f'v_{loc}']
-        lbc_ds[f'v_{loc}'][t,:,:,:] = v[lbc_slice]
+    lbc_ds['v_west'] [t,:,:,:] = v[:, :-1, :n_lbc]
+    lbc_ds['v_east'] [t,:,:,:] = v[:, :-1, -n_lbc:]
+    lbc_ds['v_south'][t,:,:,:] = v[:, :n_lbc+1, :]
+    lbc_ds['v_north'][t,:,:,:] = v[:, -n_lbc-1:-1, :]
 
-        lbc_slice = lbc_slices[f'w_{loc}']
-        lbc_ds[f'w_{loc}'][t,:,:,:] = w[lbc_slice]
+    lbc_ds['w_west'] [t,:,:,:] = w[:-1, :, :n_lbc]
+    lbc_ds['w_east'] [t,:,:,:] = w[:-1, :, -n_lbc:]
+    lbc_ds['w_south'][t,:,:,:] = w[:-1, :n_lbc, :]
+    lbc_ds['w_north'][t,:,:,:] = w[:-1, -n_lbc:, :]
 
     # Save 3D buffer field.
-    u[kstart_buffer:,    n_pad:-n_pad, n_pad:-n_pad].tofile(f'{output_dir}/u_buffer.{time:07d}')
-    v[kstart_buffer:,    n_pad:-n_pad, n_pad:-n_pad].tofile(f'{output_dir}/v_buffer.{time:07d}')
-    w[kstarth_buffer:-1, n_pad:-n_pad, n_pad:-n_pad].tofile(f'{output_dir}/w_buffer.{time:07d}')
+    u[kstart_buffer:,    n_gc:-n_gc,   n_gc:-n_gc+1].tofile(f'{output_dir}/u_buffer.{time:07d}')
+    v[kstart_buffer:,    n_gc:-n_gc+1, n_gc:-n_gc  ].tofile(f'{output_dir}/v_buffer.{time:07d}')
+    w[kstarth_buffer:-1, n_gc:-n_gc,   n_gc:-n_gc  ].tofile(f'{output_dir}/w_buffer.{time:07d}')
 
 
 def parse_pressure(
@@ -739,16 +714,18 @@ def create_input_from_regular_latlon(
                 gd['zh'],
                 gd['dz'],
                 gd['dzi'],
+                gd['dzhi'],
                 rho,
                 rhoh,
                 ip_u,
                 ip_v,
                 ip_s,
-                lbc_slices,
                 sigma_n,
                 domain,
                 kstart_buffer,
                 kstarth_buffer,
+                domain.dx,
+                domain.dy,
                 output_dir,
                 float_type))
 
