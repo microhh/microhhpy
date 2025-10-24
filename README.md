@@ -21,13 +21,17 @@ The recommended way to install `microhhpy` is via PyPI:
 
     pip install microhhpy
 
-For development, you can clone the repository and make `microhhpy` available in one of two ways:
+For development, you can clone the repository and make `microhhpy` available in one of three ways:
 
-1. Add it to your `PYTHONPATH`:
+1. Editable install with `pip`. Clone the source code from Github, and install it (preferably in a development virtual environment) using:
+
+       pip install -e /path/to/microhhpy
+
+2. Without `pip`, you can expose `microhhpy` by adding it to your `PYTHONPATH`:
 
        export PYTHONPATH="${PYTHONPATH}:/path/to/microhhpy"
 
-2. Or append the path directly in your Python script before importing:
+3. Or append the path directly in your Python script before importing:
 
        import sys
        sys.path.append('/path/to/microhhpy')
