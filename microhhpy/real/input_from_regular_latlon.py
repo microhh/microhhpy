@@ -512,6 +512,7 @@ def create_input_from_regular_latlon(
         clip_at_zero=(),
         name_suffix='',
         output_dir='.',
+        save_netcdf=False,
         ntasks=8,
         float_type=np.float64):
     """
@@ -565,6 +566,8 @@ def create_input_from_regular_latlon(
         Suffix to append to output variable names. Default is ''.
     output_dir : str, optional
         Output directory path. Default is '.'.
+    save_netcdf : bool, optional
+        Save LBCs in NetCDF format to `output_dir/lbc_ds.nc'. Default is False.
     ntasks : int, optional
         Number of parallel tasks. Default is 8.
     float_type : np.float32 or np.float64, optional
@@ -745,3 +748,6 @@ def create_input_from_regular_latlon(
     Write lateral boundary conditions to file.
     """
     lbc_ds_to_binary(lbc_ds, output_dir, float_type)
+
+    if save_netcdf:
+        lbc_ds.to_netcdf(f'{output_dir}/lbc_ds.nc')
