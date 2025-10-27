@@ -23,7 +23,7 @@ include-package-data = true
 
 [project]
 name = "microhhpy"
-version = "0.1.3"
+version = "0.1.4"
 description = "Python package with utility functions for working with MicroHH LES/DNS."
 readme = "README.md"
 authors = [
