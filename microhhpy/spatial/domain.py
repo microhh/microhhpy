@@ -255,7 +255,9 @@ def plot_domains(
         scatter_lon=[],
         scatter_lat=[],
         scatter_lonlat=False,
-        labels=None):
+        labels=None,
+        osm_background=False,
+        zoom_level=None):
     """
     Plot position of all domains.
 
@@ -271,6 +273,10 @@ def plot_domains(
         Scatter lat/lon points on map as reference.
     scatter_lonlat : bool, optional
         Scatter half level lon/lat points, to check match parent/child position.
+    osm_background : bool, optional
+        Add OpenStreetMap tiles as background (only with use_projection=True).
+    zoom_level : int, optional
+        OSM zoom level (0-19). If None, automatically calculated from domain extent.
 
     Returns:
     -------
@@ -282,12 +288,12 @@ def plot_domains(
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
+    from cartopy.io.img_tiles import OSM
 
     if labels is None:
         labels = []
         for n,dom in enumerate(domains):
             labels.append(f'#{n}: {dom.xsize/1000}x{dom.ysize/1000} km @ {dom.dx} m.')
-
 
     if use_projection:
         """
@@ -319,6 +325,35 @@ def plot_domains(
         fig = plt.figure(layout='tight')
         ax = plt.subplot(projection=proj)
 
+        ax.set_extent(extent)
+
+        # Add OpenStreetMap background if requested
+        if osm_background:
+            osm_tiles = OSM()
+
+            # Calculate zoom level if not provided
+            if zoom_level is None:
+                # Use max of lon/lat span for zoom calculation
+                delta = max(lon_max - lon_min, lat_max - lat_min)
+                zoom = int(np.clip(np.floor(np.log2(360) - np.log2(delta)), 0, 19))
+
+                logger.debug(f'Calculated zoom level = {zoom}')
+            else:
+                zoom = zoom_level
+
+            ax.add_image(osm_tiles, zoom)
+        else:
+            # Add coast lines, countries, etc.
+            ax.coastlines(resolution='10m', linewidth=0.8, color='0.5')
+
+            countries = cfeature.NaturalEarthFeature(
+                    category='cultural', name='admin_0_boundary_lines_land', scale='10m', facecolor='none', zorder=100)
+            ax.add_feature(countries, edgecolor='0.5', linewidth=0.8)
+
+            lakes = cfeature.NaturalEarthFeature(
+                    category='physical', name='lakes', scale='10m', facecolor='none', zorder=100)
+            ax.add_feature(lakes, edgecolor='0.5', linewidth=0.8)
+
         for i,d in enumerate(domains):
 
             ax.plot(d.proj.bbox_lon, d.proj.bbox_lat, label=labels[i], transform=ccrs.PlateCarree())
@@ -330,19 +365,6 @@ def plot_domains(
             plt.scatter(lon, lat, transform=ccrs.PlateCarree())
 
         plt.legend(loc='upper left')
-
-        ax.set_extent(extent)
-
-        # Add coast lines, countries, etc.
-        ax.coastlines(resolution='10m', linewidth=0.8, color='0.5')
-
-        countries = cfeature.NaturalEarthFeature(
-                category='cultural', name='admin_0_boundary_lines_land', scale='10m', facecolor='none', zorder=100)
-        ax.add_feature(countries, edgecolor='0.5', linewidth=0.8)
-
-        lakes = cfeature.NaturalEarthFeature(
-                category='physical', name='lakes', scale='10m', facecolor='none', zorder=100)
-        ax.add_feature(lakes, edgecolor='0.5', linewidth=0.8)
 
     else:
         """
