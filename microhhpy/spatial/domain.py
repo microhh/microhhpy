@@ -316,7 +316,7 @@ def plot_domains(
             central_longitude=0.5*(lon_min + lon_max),
             central_latitude=0.5*(lat_min + lat_max))
 
-        plt.figure(layout='tight')
+        fig = plt.figure(layout='tight')
         ax = plt.subplot(projection=proj)
 
         for i,d in enumerate(domains):
@@ -349,8 +349,8 @@ def plot_domains(
         Simple plot domains in x/y space.
         """
 
-        plt.figure(layout='tight')
-        plt.subplot(aspect='equal')
+        fig = plt.figure(layout='tight')
+        ax = plt.subplot(aspect='equal')
 
         for i,d in enumerate(domains):
 
@@ -362,3 +362,6 @@ def plot_domains(
         plt.xlabel('x (m)')
         plt.ylabel('y (m)')
         plt.legend()
+
+
+    return fig, ax
