@@ -37,6 +37,7 @@ def create_sst_from_regular_latlon(
     lat_in,
     lon_out,
     lat_out,
+    extrapolate_sea=True,
     float_type=np.float64):
     """
     Create sea surface temperature from regular lat/lon input.
@@ -46,7 +47,7 @@ def create_sst_from_regular_latlon(
 
     Parameters:
     ----------
-    sst_in : np.ma.masked_array, shape=(lon, lat)
+    sst_in : np.ma.masked_array, shape=(lon, lat) or (time, lon, lat)
         Input sea surface temperature. Mask = True indicates land points.
     lon_in : np.ndarray, shape=(lon,)
         Input longitude.
@@ -56,12 +57,14 @@ def create_sst_from_regular_latlon(
         Output longitude.
     lat_out : np.ndarray, shape=(lon_out, lat_out)
         Output latitude.
+    extrapolate_sea : bool
+        Extrapolate SST values onto land mask before interpolating.
     float_type : np.float32 or np.float64
         Floating point precision.
 
     Returns:
     -------
-    sst_out : np.ndarray, shape=(lon_out, lat_out)
+    sst_out : np.ndarray, shape=(lon_out, lat_out) or (time, lon_out, lat_out)
         Processed and interpolated SSTs.
     """
 
@@ -73,17 +76,30 @@ def create_sst_from_regular_latlon(
     if isinstance(lat_in, np.ma.masked_array):
         lat_in = lat_in.data
 
-    # Extrapolate function expects the sea mask.
-    sea_mask = ~sst_in.mask
+    def process_tstep(sst_in):
+        if extrapolate_sea:
+            # Extrapolate function expects the sea mask.
+            sea_mask = ~sst_in.mask
 
-    # Extrapolate SSTs onto land-mask before interpolation.
-    sst_ext = extrapolate_onto_mask(sst_in.data, sea_mask, max_distance=5)
+            # Extrapolate SSTs onto land-mask before interpolation.
+            sst_ext = extrapolate_onto_mask(sst_in.data, sea_mask, max_distance=5)
+        else:
+            sst_ext = sst_in.data
 
-    # Interpolate onto LES grid.
-    sst_ip = interp_rect_to_curv_latlon_2d(
-            sst_ext, lon_in, lat_in, lon_out, lat_out, float_type=float_type)
+        # Interpolate onto LES grid.
+        return interp_rect_to_curv_latlon_2d(
+                sst_ext, lon_in, lat_in, lon_out, lat_out, float_type=float_type)
 
-    if np.any(sst_ip < 273.15):
+    if sst_in.ndim == 3:
+        ntime = sst_in.shape[0]
+        sst_out = np.tile(lon_out, (ntime, 1, 1))
+
+        for t in range(ntime):
+            sst_out[t,:,:] = process_tstep(sst_in[t,:,:])
+    else:
+        sst_out = process_tstep(sst_in)
+
+    if np.any(sst_out < 273.15):
         logger.warning('Interpolated/processed SSTs contain temperatures below zero!')
 
-    return sst_ip
+    return sst_out
