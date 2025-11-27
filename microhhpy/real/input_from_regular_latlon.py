@@ -751,3 +751,90 @@ def create_input_from_regular_latlon(
 
     if save_netcdf:
         lbc_ds.to_netcdf(f'{output_dir}/lbc_ds.nc')
+
+
+def parse_geowind(ug_in, vg_in, z_in, domain, z, ip_u, ip_v, time, float_type):
+
+    ug_les = np.empty((z.size, domain.proj.jtot, domain.proj.itot), dtype=float_type)
+    vg_les = np.empty((z.size, domain.proj.jtot, domain.proj.itot), dtype=float_type)
+
+    interp_rect_to_curv_kernel(
+        ug_les,
+        ug_in,
+        ip_u.il,
+        ip_u.jl,
+        ip_u.fx,
+        ip_u.fy,
+        z,
+        z_in,
+        float_type)
+
+    interp_rect_to_curv_kernel(
+        vg_les,
+        vg_in,
+        ip_v.il,
+        ip_v.jl,
+        ip_v.fx,
+        ip_v.fy,
+        z,
+        z_in,
+        float_type)
+
+    ug_les.tofile(f'{domain.work_dir}/ug.{time:07d}')
+    vg_les.tofile(f'{domain.work_dir}/vg.{time:07d}')
+
+
+def create_3d_geowind_from_regular_latlon(
+        ug_in,
+        vg_in,
+        lon_in,
+        lat_in,
+        z_in,
+        time_in,
+        z,
+        domain,
+        output_dir='.',
+        ntasks=8,
+        float_type=np.float64):
+    """
+    Interpolate 3D geostrophic wind to LES grid.
+
+    Parameters
+    ----------
+    TODO
+
+    Returns
+    -------
+    None
+    """
+    logger.info(f'Creating 3D geostrophic wind in {output_dir}.')
+
+    # Setup horizontal interpolations (indexes and factors).
+    ip_u, ip_v, _ = setup_interpolations(lon_in, lat_in, domain.proj, float_type=float_type)
+
+    # Run in parallel with ThreadPoolExecutor for ~10x speed-up.
+    args = []
+
+    for t in range(time_in.size):
+        args.append((
+            ug_in[t],
+            vg_in[t],
+            z_in[t],
+            domain,
+            z,
+            ip_u,
+            ip_v,
+            time_in[t],
+            float_type
+        ))
+
+    def parse_geowind_wrapper(args):
+        return parse_geowind(*args)
+
+    tick = datetime.now()
+
+    with ThreadPoolExecutor(max_workers=ntasks) as executor:
+        results = list(executor.map(parse_geowind_wrapper, args))
+
+    tock = datetime.now()
+    logger.info(f'Created 3D geowind input in {tock - tick}.')
