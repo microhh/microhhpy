@@ -105,7 +105,7 @@ class Emission_input:
             z,
             dz,
             rho_ref,
-            dtype=np.float64):
+            float_type=np.float64):
         """
         Help class to define point source emissions.
         Emissions can be added to a single grid point, or as Gaussian "blobs".
@@ -131,7 +131,7 @@ class Emission_input:
             Array with full level vertical grid spacing (m).
         rho_ref : np.ndarray shape (1,)
             Array with base state density (kg m-3).
-        dtype : np.float32 or np.float64
+        float_type : np.float32 or np.float64
             Datatype used by MicroHH.
         """
 
@@ -159,7 +159,7 @@ class Emission_input:
         # Create 3D emission fields.
         self.data = {}
         for field in self.fields:
-            self.data[field] = np.zeros((self.nt, self.ktot, self.jtot, self.itot), dtype=dtype)
+            self.data[field] = np.zeros((self.nt, self.ktot, self.jtot, self.itot), dtype=float_type)
 
         self.is_clipped = False
 

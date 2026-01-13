@@ -164,12 +164,118 @@ def calc_moist_basestate(
     thl = thl[kstart:kend]
     qt  = qt[kstart:kend]
 
-
     return dict(
         thl=thl,
         qt=qt,
         thv=thv,
         thvh=thvh,
+        p=p,
+        ph=ph,
+        exner=ex,
+        exnerh=exh,
+        rho=rho,
+        rhoh=rhoh
+    )
+
+
+def calc_dry_basestate(
+        th,
+        pbot,
+        z,
+        zsize,
+        dtype=np.float64):
+    """
+    Calculate dry thermodynamic base state from the
+    provided potential temperature and surface pressure.
+
+    Parameters:
+    ----------
+    th : np.ndarray, shape (1,)
+        Potential temperature on full levels (K).
+    pbot : float
+        Surface pressure (Pa).
+    z : np.ndarray, shape (1,)
+        Full level height (m).
+    zsize : float
+        Domain top height (m).
+    dtype : np.dtype
+        Floating point precision, np.float32 or np.float64.
+
+    Returns:
+    -------
+    base_state: dict
+        Dictionary with base state fields.
+    """
+    th_in = th.copy()
+
+    gd = calc_vertical_grid_2nd(z, zsize, float_type=dtype, remove_ghost=False)
+
+    kcells = gd['ktot'] + 2
+    kstart = 1
+    kend = gd['ktot'] + 1
+
+    p = np.zeros(kcells)
+    ph = np.zeros(kcells)
+
+    rho = np.zeros(kcells)
+    rhoh = np.zeros(kcells)
+
+    ex = np.zeros(kcells)
+    exh = np.zeros(kcells)
+
+    # Add ghost cells to input profiles
+    th = np.zeros(kcells, dtype)
+    thh = np.zeros(kcells, dtype)
+
+    th[kstart:kend] = th_in
+
+    # Extrapolate the input sounding to get the bottom value
+    thh[kstart] = th[kstart] - z[kstart]*(th[kstart+1]-th[kstart])*gd['dzhi'][kstart+1]
+
+    # Extrapolate the input sounding to get the top value
+    thh[kend] = th[kend-1] + (gd['zh'][kend]-gd['z'][kend-1])*(th[kend-1]-th[kend-2])*gd['dzhi'][kend-1]
+
+    # Set the ghost cells for the reference potential temperature
+    th[kstart-1] = 2.*thh[kstart] - th[kstart]
+    th[kend]     = 2.*thh[kend]   - th[kend-1]
+
+    # Interpolate the input sounding to half levels.
+    for k in range(kstart+1, kend):
+        thh[k] = 0.5*(th[k-1] + th[k])
+
+    # Calculate pressure.
+    ph[kstart] = pbot
+    p [kstart] = pbot * np.exp(-cst.grav * z[kstart] / (cst.Rd * thh[kstart] * exner(ph[kstart])))
+
+    for k in range(kstart+1, kend+1):
+        ph[k] = ph[k-1] * np.exp(-cst.grav * gd['dz'][k-1] / (cst.Rd * th[k-1] * exner(p[k-1])))
+        p [k] = p [k-1] * np.exp(-cst.grav * gd['dzh'][k ] / (cst.Rd * thh[k ] * exner(ph[k ])))
+    p[kstart-1] = 2*ph[kstart] - p[kstart]
+
+    # Calculate density and exner
+    for k in range(0, kcells):
+        ex[k]  = exner(p[k] )
+        rho[k]  = p[k]  / (cst.Rd * th[k]  * ex[k] )
+
+    for k in range(1, kcells):
+        exh[k] = exner(ph[k])
+        rhoh[k] = ph[k] / (cst.Rd * thh[k] * exh[k])
+
+    # Remove ghost cells.
+    p = p[kstart:kend]
+    ph = ph[kstart:kend+1]
+
+    rho = rho[kstart:kend]
+    rhoh = rhoh[kstart:kend+1]
+
+    ex = ex[kstart:kend]
+    exh = exh[kstart:kend+1]
+
+    th = th[kstart:kend]
+    thh = thh[kstart:kend+1]
+
+    return dict(
+        th=th,
         p=p,
         ph=ph,
         exner=ex,
@@ -298,96 +404,6 @@ def read_basestate_density(
 
 
 
-#class Basestate_dry:
-#    def __init__(self, th, pbot, z, zsize, remove_ghost=False, dtype=np.float64):
-#        """
-#        Calculate dry thermodynamic base state from the
-#        provided potential temperature and surface pressure.
-#
-#        Parameters:
-#        -----------
-#        th : np.ndarray, shape (1,)
-#            Potential temperature on full levels (K).
-#        pbot : float
-#            Surface pressure (Pa).
-#        z : np.ndarray, shape (1,)
-#            Full level height (m).
-#        zsize : float
-#            Domain top height (m).
-#        remove_ghost : bool, default=False
-#            Remove single ghost cells from bottom/top of output arrays.
-#        dtype : np.dtype
-#            Floating point precision, np.float32 or np.float64.
-#        """
-#
-#        gd = Vertical_grid_2nd(z, zsize, dtype=dtype)
-#
-#        self.gd = gd
-#        self.remove_ghost = remove_ghost
-#        self.dtype = dtype
-#
-#        self.p = np.zeros(gd.kcells)
-#        self.ph = np.zeros(gd.kcells)
-#
-#        self.rho = np.zeros(gd.kcells)
-#        self.rhoh = np.zeros(gd.kcells)
-#
-#        self.ex = np.zeros(gd.kcells)
-#        self.exh = np.zeros(gd.kcells)
-#
-#        # Add ghost cells to input profiles
-#        self.th = np.zeros(gd.kcells, dtype)
-#        self.thh = np.zeros(gd.kcells, dtype)
-#
-#        self.th[gd.kstart:gd.kend] = th
-#
-#        # Extrapolate the input sounding to get the bottom value
-#        self.thh[gd.kstart] = self.th[gd.kstart] - gd.z[gd.kstart]*(self.th[gd.kstart+1]-self.th[gd.kstart])*gd.dzhi[gd.kstart+1]
-#
-#        # Extrapolate the input sounding to get the top value
-#        self.thh[gd.kend] = self.th[gd.kend-1] + (gd.zh[gd.kend]-gd.z[gd.kend-1])*(self.th[gd.kend-1]-self.th[gd.kend-2])*gd.dzhi[gd.kend-1]
-#
-#        # Set the ghost cells for the reference potential temperature
-#        self.th[gd.kstart-1] = 2.*self.thh[gd.kstart] - self.th[gd.kstart]
-#        self.th[gd.kend]     = 2.*self.thh[gd.kend]   - self.th[gd.kend-1]
-#
-#        # Interpolate the input sounding to half levels.
-#        for k in range(gd.kstart+1, gd.kend):
-#            self.thh[k] = 0.5*(self.th[k-1] + self.th[k])
-#
-#        # Calculate pressure.
-#        self.ph[gd.kstart] = pbot
-#        self.p [gd.kstart] = pbot * np.exp(-cst.grav * gd.z[gd.kstart] / (cst.Rd * self.thh[gd.kstart] * exner(self.ph[gd.kstart])))
-#
-#        for k in range(gd.kstart+1, gd.kend+1):
-#            self.ph[k] = self.ph[k-1] * np.exp(-cst.grav * gd.dz[k-1] / (cst.Rd * self.th[k-1] * exner(self.p[k-1])))
-#            self.p [k] = self.p [k-1] * np.exp(-cst.grav * gd.dzh[k ] / (cst.Rd * self.thh[k ] * exner(self.ph[k ])))
-#        self.p[gd.kstart-1] = 2*self.ph[gd.kstart] - self.p[gd.kstart]
-#
-#        # Calculate density and exner
-#        for k in range(0, gd.kcells):
-#            self.ex[k]  = exner(self.p[k] )
-#            self.rho[k]  = self.p[k]  / (cst.Rd * self.th[k]  * self.ex[k] )
-#
-#        for k in range(1, gd.kcells):
-#            self.exh[k] = exner(self.ph[k])
-#            self.rhoh[k] = self.ph[k] / (cst.Rd * self.thh[k] * self.exh[k])
-#
-#        if remove_ghost:
-#            """
-#            Strip off the ghost cells, to leave `ktot` full levels and `ktot+1` half levels.
-#            """
-#            self.p = self.p[gd.kstart:gd.kend]
-#            self.ph = self.ph[gd.kstart:gd.kend+1]
-#
-#            self.rho = self.rho[gd.kstart:gd.kend]
-#            self.rhoh = self.rhoh[gd.kstart:gd.kend+1]
-#
-#            self.ex = self.ex[gd.kstart:gd.kend]
-#            self.exh = self.exh[gd.kstart:gd.kend+1]
-#
-#            self.th = self.th[gd.kstart:gd.kend]
-#            self.thh = self.thh[gd.kstart:gd.kend+1]
 #
 #
 #    #def to_binary(self, grid_file):
