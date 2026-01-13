@@ -28,6 +28,7 @@ from numba import njit
 from scipy.optimize import curve_fit
 
 # Local library
+from microhhpy.constants import xm_cams
 
 
 @njit
@@ -52,7 +53,9 @@ def _add_source_kernel(
         dx,
         dy,
         dz,
-        rho_ref):
+        rho_ref,
+        xm_air,
+        sw_vmr):
 
     """
     Fast Numba kernel to add source as Gaussian blob to field,
@@ -68,6 +71,15 @@ def _add_source_kernel(
         # to clip the input fields, reducing their size.
         if (z[k] > z0-4*sigma_z) and (z[k] < z0+4*sigma_z):
 
+            if sw_vmr:
+                # Emissions come in [kmol tracers s-1] and are added to grid boxes in [VMR s-1] unit.
+                # rhoref [kg m-3] divided by xmair [kg kmol-1] transfers to units [kmol(tracer) / kmol(air) / s].
+                scaling = rho_ref[k] / xm_air
+            else:
+                # Emissions come in [kg tracer s-1]. [kg tracer s-1 / (m3 * kg m-3)] results in
+                # emissions in units [kg tracer / kg air / s].
+                scaling = rho_ref[k]
+
             for j in range(jtot):
                 for i in range(itot):
 
@@ -76,7 +88,7 @@ def _add_source_kernel(
                             - _pow2(y[j]-y0)/_pow2(sigma_y)
                             - _pow2(z[k]-z0)/_pow2(sigma_z))
 
-                    raw_sum += blob_norm * dx * dy * dz[k] * rho_ref[k]
+                    raw_sum += blob_norm * dx * dy * dz[k] * scaling
 
     scaling = strength / raw_sum
 
@@ -176,7 +188,7 @@ class Emission_input:
         return t
 
 
-    def add_gaussian(self, field, strength, time, x0, y0, z0, sigma_x, sigma_y, sigma_z):
+    def add_gaussian(self, field, strength, time, x0, y0, z0, sigma_x, sigma_y, sigma_z, sw_vmr):
         """
         Add single point source emission, spread out over a Gaussian blob defined by `sigma_xyz`.
 
@@ -185,7 +197,7 @@ class Emission_input:
         field : string
             Emission field name.
         strength : float
-            Emission strength (kg s-1).
+            Emission strength (kmol s-1 if sw_vmr=True, kg s-1 if sw_vmr=False).
         time : int
             Emission time (s).
         x0 : float
@@ -200,6 +212,8 @@ class Emission_input:
             Std.dev of Gaussian blob in y-direction (m).
         sigma_z : float
             Std.dev of Gaussian blob in z-direction (m).
+        sw_vmr : bool
+            Switch between volume mixing ratio (True, mol/mol) or mass mixing ratio (False, kg/kg).
         """
 
         t = self.get_index(time)
@@ -220,10 +234,12 @@ class Emission_input:
                 self.dx,
                 self.dy,
                 self.dz,
-                self.rho_ref)
+                self.rho_ref,
+                xm_cams['air'],
+                sw_vmr)
 
 
-    def add_point(self, field, strength, time, x0, y0, z0):
+    def add_point(self, field, strength, time, x0, y0, z0, sw_vmr):
         """
         Add single point source emission, to single grid point.
 
@@ -232,7 +248,7 @@ class Emission_input:
         field : string
             Emission field name.
         strength : float
-            Emission strength (kg s-1).
+            Emission strength (kmol s-1 if sw_vmr=True, kg s-1 if sw_vmr=False).
         time : int
             Emission time (s).
         x0 : float
@@ -240,7 +256,9 @@ class Emission_input:
         y0 : float
             Center (y) of emission (m).
         z0 : float
-            Center (z) of emission (m) .
+            Center (z) of emission (m).
+        sw_vmr : bool
+            Switch between volume mixing ratio (True, mol/mol) or mass mixing ratio (False, kg/kg).
         """
 
         t = self.get_index(time)
@@ -250,7 +268,17 @@ class Emission_input:
         k = np.abs(self.z - z0).argmin()
 
         volume = self.dx * self.dy * self.dz[k]
-        self.data[field][t,k,j,i] += strength / (volume * self.rho_ref[k])
+
+        if sw_vmr:
+            # Emissions come in [kmol tracers s-1] and are added to grid boxes in [VMR s-1] unit.
+            # rhoref [kg m-3] divided by xmair [kg kmol-1] transfers to units [kmol(tracer) / kmol(air) / s].
+            norm = self.rho_ref[k] / xm_cams['air']
+        else:
+            # Emissions come in [kg tracer s-1]. [kg tracer s-1 / (m3 * kg m-3)] results in
+            # emissions in units [kg tracer / kg air / s].
+            norm = self.rho_ref[k]
+
+        self.data[field][t,k,j,i] += strength / (volume * norm)
 
 
     def add_manual(self, field, value, time, x0, y0, z0):
