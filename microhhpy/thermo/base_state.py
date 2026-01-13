@@ -37,7 +37,7 @@ def calc_moist_basestate(
         pbot,
         z,
         zsize,
-        dtype=np.float64):
+        float_type=np.float64):
     """
     Calculate moist thermodynamic base state from the
     provided liquid water potential temperature, total
@@ -55,7 +55,7 @@ def calc_moist_basestate(
         Full level height (m).
     zsize : float
         Domain top height (m).
-    dtype : np.dtype
+    float_type : np.dtype
         Floating point precision, np.float32 or np.float64.
 
     Returns:
@@ -67,7 +67,7 @@ def calc_moist_basestate(
     thl_in = thl.copy()
     qt_in = qt.copy()
 
-    gd = calc_vertical_grid_2nd(z, zsize, float_type=dtype, remove_ghost=False)
+    gd = calc_vertical_grid_2nd(z, zsize, float_type=float_type, remove_ghost=False)
 
     z = gd['z']
 
@@ -75,21 +75,21 @@ def calc_moist_basestate(
     kstart = 1
     kend = gd['ktot'] + 1
 
-    p = np.zeros(kcells, dtype)
-    ph = np.zeros(kcells, dtype)
+    p = np.zeros(kcells, float_type)
+    ph = np.zeros(kcells, float_type)
 
-    rho = np.zeros(kcells, dtype)
-    rhoh = np.zeros(kcells, dtype)
+    rho = np.zeros(kcells, float_type)
+    rhoh = np.zeros(kcells, float_type)
 
-    thv = np.zeros(kcells, dtype)
-    thvh = np.zeros(kcells, dtype)
+    thv = np.zeros(kcells, float_type)
+    thvh = np.zeros(kcells, float_type)
 
-    ex = np.zeros(kcells, dtype)
-    exh = np.zeros(kcells, dtype)
+    ex = np.zeros(kcells, float_type)
+    exh = np.zeros(kcells, float_type)
 
     # Add ghost cells to input profiles
-    thl = np.zeros(kcells, dtype)
-    qt  = np.zeros(kcells, dtype)
+    thl = np.zeros(kcells, float_type)
+    qt  = np.zeros(kcells, float_type)
 
     thl[kstart:kend] = thl_in
     qt [kstart:kend] = qt_in
@@ -183,7 +183,7 @@ def calc_dry_basestate(
         pbot,
         z,
         zsize,
-        dtype=np.float64):
+        float_type=np.float64):
     """
     Calculate dry thermodynamic base state from the
     provided potential temperature and surface pressure.
@@ -198,7 +198,7 @@ def calc_dry_basestate(
         Full level height (m).
     zsize : float
         Domain top height (m).
-    dtype : np.dtype
+    float_type : np.dtype
         Floating point precision, np.float32 or np.float64.
 
     Returns:
@@ -208,7 +208,7 @@ def calc_dry_basestate(
     """
     th_in = th.copy()
 
-    gd = calc_vertical_grid_2nd(z, zsize, float_type=dtype, remove_ghost=False)
+    gd = calc_vertical_grid_2nd(z, zsize, float_type=float_type, remove_ghost=False)
 
     kcells = gd['ktot'] + 2
     kstart = 1
@@ -224,8 +224,8 @@ def calc_dry_basestate(
     exh = np.zeros(kcells)
 
     # Add ghost cells to input profiles
-    th = np.zeros(kcells, dtype)
-    thh = np.zeros(kcells, dtype)
+    th = np.zeros(kcells, float_type)
+    thh = np.zeros(kcells, float_type)
 
     th[kstart:kend] = th_in
 
@@ -317,7 +317,7 @@ def save_moist_basestate(
 
 def read_moist_basestate(
         file_name,
-        dtype=np.float64):
+        float_type=np.float64):
     """
     Read moist thermodynamic base state from binary file.
 
@@ -325,7 +325,7 @@ def read_moist_basestate(
     ----------
     file_name : str
         Path to the input binary file.
-    dtype : np.dtype
+    float_type : np.dtype
         Floating point precision, np.float32 or np.float64.
 
     Returns:
@@ -334,7 +334,7 @@ def read_moist_basestate(
         Dictionary with base state fields.
     """
 
-    bs = np.fromfile(file_name, dtype=dtype)
+    bs = np.fromfile(file_name, dtype=float_type)
 
     # This is not at all dangerous.
     n = int((bs.size - 4) / 10)
@@ -378,7 +378,7 @@ def save_basestate_density(
 
 def read_basestate_density(
         file_name,
-        dtype=np.float64):
+        float_type=np.float64):
     """
     Read base state density from binary file.
 
@@ -386,7 +386,7 @@ def read_basestate_density(
     ----------
     file_name : str
         Path to the input binary file.
-    dtype : np.dtype
+    float_type : np.dtype
         Floating point precision, np.float32 or np.float64.
 
     Returns:
@@ -397,7 +397,7 @@ def read_basestate_density(
         Density at half levels.
     """
 
-    bs = np.fromfile(file_name, dtype=dtype)
+    bs = np.fromfile(file_name, dtype=float_type)
     n = int((bs.size - 1) / 2)
 
     return dict(rho=bs[:n], rhoh=bs[n:])

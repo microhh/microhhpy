@@ -126,8 +126,8 @@ def create_land_surface_input(
     lsm_input.lat = lat
 
     # Coefficients used to calculate root fraction.
-    a_r = np.zeros_like(lon, dtype=np.float32)
-    b_r = np.zeros_like(lon, dtype=np.float32)
+    a_r = np.zeros_like(lon, dtype=float_type)
+    b_r = np.zeros_like(lon, dtype=float_type)
 
     for code in np.unique(ifs_index_nn):
         mask = (ifs_index_nn == code)

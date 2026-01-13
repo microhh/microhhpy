@@ -42,7 +42,7 @@ def create_lbc_ds(
         n_sponge,
         x_offset=0,
         y_offset=0,
-        dtype=np.float64):
+        float_type=np.float64):
     """
     Create an Xarray Dataset with lateral boundary conditions for MicroHH.
 
@@ -72,7 +72,7 @@ def create_lbc_ds(
         Offset in x-direction (default: 0).
     y_offset : float, optional
         Offset in y-direction (default: 0).
-    dtype : np.dtype, optional
+    float_type : np.dtype, optional
         Data type for field arrays (default: np.float64).
 
     Returns:
@@ -152,7 +152,7 @@ def create_lbc_ds(
 
     def add_var(name, dims):
         dim_size = get_dim_size(dims)
-        ds[name] = (dims, np.zeros(dim_size, dtype=dtype))
+        ds[name] = (dims, np.zeros(dim_size, dtype=float_type))
 
     for fld in fields:
         if fld not in ('u','v','w'):
@@ -184,7 +184,7 @@ def create_lbc_ds(
     return ds
 
 
-def lbc_ds_to_binary(ds, path, dtype):
+def lbc_ds_to_binary(ds, path, float_type):
     """
     Save an Xarray Dataset with lateral boundary conditions to binary files for MicroHH.
 
@@ -196,16 +196,16 @@ def lbc_ds_to_binary(ds, path, dtype):
         Path to save the binary files.
     save_tsteps : bool
         If True, save each time step in a separate binary.
-    dtype : np.float32 or np.float64
+    float_type : np.float32 or np.float64
         Data type for the binary files.
     """
 
     for var in ds.data_vars:
         #if save_tsteps:
         for t, time in enumerate(ds.time.values):
-            ds[var][t].values.astype(dtype).tofile(f'{path}/lbc_{var}.{time:07d}')
+            ds[var][t].values.astype(float_type).tofile(f'{path}/lbc_{var}.{time:07d}')
         #else:
-        #    ds[var].values.astype(dtype).tofile(f'{path}/lbc_{var}.0000000')
+        #    ds[var].values.astype(float_type).tofile(f'{path}/lbc_{var}.0000000')
 
 
 

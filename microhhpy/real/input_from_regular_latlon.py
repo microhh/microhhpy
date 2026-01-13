@@ -610,7 +610,7 @@ def create_input_from_regular_latlon(
         gd['zh'][:-1],
         domain.n_ghost,
         domain.n_sponge,
-        dtype=float_type)
+        float_type=float_type)
 
     # Numpy slices of lateral boundary conditions.
     lbc_slices = setup_lbc_slices(domain.n_ghost, domain.n_sponge)

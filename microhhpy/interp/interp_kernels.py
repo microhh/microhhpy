@@ -88,10 +88,11 @@ def _calc_rect_to_curv_interpolation_factors(
         fx, fy,
         lon_era, lat_era,
         lon_les, lat_les,
-        TF=np.float64):
+        float_type=np.float64):
     """
     Numba kernel to calculate the horizontal interpolation indexes and factors.
     """
+    TF = float_type
     jtot_les, itot_les = lon_les.shape
     itot_era = lon_era.size
     jtot_era = lat_era.size
@@ -126,7 +127,7 @@ class Rect_to_curv_interpolation_factors:
         Output longitude on non-rectilinear grid.
     lat_out : np.ndarray, shape (2,)
         Output latitude on non-rectilinear grid.
-    dtype : Numpy float type
+    float_type : Numpy float type
         Numpy floating point datatype.
 
     Returns:
@@ -137,7 +138,7 @@ class Rect_to_curv_interpolation_factors:
             self,
             lon_in, lat_in,
             lon_out, lat_out,
-            dtype):
+            float_type):
 
         jtot, itot = lon_out.shape
 
@@ -150,8 +151,8 @@ class Rect_to_curv_interpolation_factors:
         self.jm = np.zeros((jtot, itot), dtype=np.uint32)
 
         # Interpolation factors.
-        self.fx = np.zeros((jtot, itot), dtype=dtype)
-        self.fy = np.zeros((jtot, itot), dtype=dtype)
+        self.fx = np.zeros((jtot, itot), dtype=float_type)
+        self.fy = np.zeros((jtot, itot), dtype=float_type)
 
         _calc_rect_to_curv_interpolation_factors(
                 self.il, self.jl,
@@ -159,7 +160,7 @@ class Rect_to_curv_interpolation_factors:
                 self.fx, self.fy,
                 lon_in, lat_in,
                 lon_out, lat_out,
-                TF=dtype)
+                float_type=float_type)
 
 
 @jit(nopython=True, nogil=True, fastmath=True, parallel=True)

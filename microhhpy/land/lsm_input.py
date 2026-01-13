@@ -101,17 +101,13 @@ class Land_surface_input:
         self.lat = np.zeros((jtot, itot), dtype=float_type)
 
         # Create empty 2D/3D fields
-        def get_dtype(name):
-            return float_type
-            #return np.uint16 if 'index' in name else float_type
-
         for fld in self.fields_2d:
             if fld not in self.exclude_fields:
-                setattr(self, fld, np.zeros((jtot, itot), dtype=get_dtype(fld)))
+                setattr(self, fld, np.zeros((jtot, itot), dtype=float_type))
 
         for fld in self.fields_3d:
             if fld not in self.exclude_fields:
-                setattr(self, fld, np.zeros((ktot, jtot, itot), dtype=get_dtype(fld)))
+                setattr(self, fld, np.zeros((ktot, jtot, itot), dtype=float_type))
 
         if debug:
             # Init all values at large negative number
