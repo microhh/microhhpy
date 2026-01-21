@@ -40,7 +40,7 @@ def _int_or_float_or_str(value):
             return False
         elif value == 'None':
             return None
-        elif ('.' in value):
+        elif ('.' in value or 'e' in value.lower()):
             return float(value)
         else:
             return int(float(value))
