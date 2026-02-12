@@ -23,11 +23,12 @@
 # Standard library
 
 # Third-party.
+import pandas as pd
 import numpy as np
 
 # Local library
 
-def read_case_out(out_file):
+def read_case_out(out_file, return_dataframe=False):
     """
     Parse `case.out` file from MicroHH.
     Some additional columns are calculated:
@@ -68,4 +69,10 @@ def read_case_out(out_file):
         runs[i]['sdpd'] = np.zeros_like(runs[i]['time'])
         runs[i]['sdpd'][1:] = dtime / runs[i]['cpudt'][1:]
 
-    return runs
+    if return_dataframe:
+        dfs = []
+        for run in runs:
+            dfs.append(pd.DataFrame(run))
+        return dfs
+    else:
+        return runs
