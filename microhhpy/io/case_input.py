@@ -21,7 +21,7 @@
 #
 
 # Standard library
-import os
+from pathlib import Path
 
 # Third-party.
 import netCDF4 as nc4
@@ -44,7 +44,8 @@ def save_case_input(
         soil=None,
         source=None,
         trajectories=None,
-        output_dir=''):
+        output_dir='',
+        overwrite=False):
     """
     Create a MicroHH NetCDF input file from dictionaries containing variable data.
 
@@ -76,6 +77,8 @@ def save_case_input(
         Trajectory data. Each trajectory must contain 'time', 'x', 'y', 'z' keys.
     output_dir : str, optional
         Output directory. Default is '' (current directory).
+    overwrite : bool, optional
+        Whether to overwrite existing file. Default is False.
 
     Notes:
     -----
@@ -133,7 +136,14 @@ def save_case_input(
 
 
     # Define new NetCDF file
-    nc_name = os.path.join(output_dir, f'{case_name}_input.nc')
+    nc_name = Path(output_dir) / f"{case_name}_input.nc"
+
+    if nc_name.exists():
+        if not overwrite:
+            raise FileExistsError(f"File {nc_name} already exists.")
+
+        nc_name.unlink()
+
     nc_file = nc4.Dataset(nc_name, mode='w', datamodel='NETCDF4')
 
     # Create height dimension, and set height coordinate
