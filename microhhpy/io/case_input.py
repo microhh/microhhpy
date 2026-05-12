@@ -85,6 +85,24 @@ def save_case_input(
     # Precision of input files can be double for single precision runs.
     float_type = np.float64
 
+    def add_attrs(nc_obj, attrs):
+        """
+        Add xarray attributes to a NetCDF object.
+        """
+        for key, value in attrs.items():
+            if value is None:
+                continue
+
+            if isinstance(value, np.generic):
+                value = value.item()
+            elif isinstance(value, (list, tuple)):
+                value = np.asarray(value)
+
+            try:
+                nc_obj.setncattr(key, value)
+            except TypeError:
+                nc_obj.setncattr(key, str(value))
+
     def add_variable(nc_group, name, dims, data, float_type):
         """
         Add variable to NetCDF file (or group), and write data
@@ -93,8 +111,12 @@ def save_case_input(
             print(f'Warning: variable {name} already exists!')
             return
 
+        attrs = getattr(data, 'attrs', {})
+        values = data.values if isinstance(data, xr.DataArray) else data
+
         var = nc_group.createVariable(name, float_type, dims or ())
-        var[:] = data if dims is None else data[:]
+        var[:] = values if dims is None else values[:]
+        add_attrs(var, attrs)
 
     def add_dim(nc_group, name, size):
         """
@@ -120,6 +142,7 @@ def save_case_input(
 
     # Create a group called "init" for the initial profiles.
     nc_group_init = nc_file.createGroup('init')
+    add_attrs(nc_group_init, getattr(init_profiles, 'attrs', {}))
 
     # Check if any of the timedep groups are active.
     tdep_groups = (tdep_surface, tdep_ls, tdep_source, tdep_chem, tdep_aerosol, tdep_radiation)
@@ -152,6 +175,7 @@ def save_case_input(
 
     # Write the time dependent surface values
     if tdep_surface is not None:
+        add_attrs(nc_group_timedep, getattr(tdep_surface, 'attrs', {}))
         add_dim(nc_group_timedep, 'time_surface', tdep_surface['time_surface'].size)
 
         for name, data in tdep_surface.items():
@@ -160,6 +184,7 @@ def save_case_input(
 
     # Write the time dependent atmospheric values
     if tdep_ls is not None:
+        add_attrs(nc_group_timedep, getattr(tdep_ls, 'attrs', {}))
         add_dim(nc_group_timedep, 'time_ls', tdep_ls['time_ls'].size)
 
         for name, data in tdep_ls.items():
@@ -169,6 +194,7 @@ def save_case_input(
 
     # Write time dependent source strength/location.
     if tdep_source is not None:
+        add_attrs(nc_group_timedep, getattr(tdep_source, 'attrs', {}))
         add_dim(nc_group_timedep, 'time_source', tdep_source['time_source'].size)
 
         for name, data in tdep_source.items():
@@ -178,6 +204,7 @@ def save_case_input(
     # Write time dependent chemistry variables.
     if tdep_chem is not None:
         nc_group_timedep_chem = nc_file.createGroup('timedep_chem')
+        add_attrs(nc_group_timedep_chem, getattr(tdep_chem, 'attrs', {}))
         add_dim(nc_group_timedep_chem, 'time_chem', tdep_chem['time_chem'].size)
 
         for name, data in tdep_chem.items():
@@ -186,6 +213,7 @@ def save_case_input(
 
     # Write time dependent aerosol concentrations.
     if tdep_aerosol is not None:
+        add_attrs(nc_group_timedep, getattr(tdep_aerosol, 'attrs', {}))
         add_dim(nc_group_timedep, 'time_rad', tdep_aerosol['time_rad'].size)
 
         for name, data in tdep_aerosol.items():
@@ -202,6 +230,7 @@ def save_case_input(
     # Non time-dependent radiation profiles (T, h2o, gasses, ...).
     if radiation is not None:
         nc_group_rad = nc_file.createGroup('radiation')
+        add_attrs(nc_group_rad, getattr(radiation, 'attrs', {}))
 
         add_dim(nc_group_rad, 'lay', radiation['p_lay'].size)
         add_dim(nc_group_rad, 'lev', radiation['p_lev'].size)
@@ -218,6 +247,7 @@ def save_case_input(
 
     # Time dependent radiation profiles.
     if tdep_radiation is not None:
+        add_attrs(nc_group_timedep, getattr(tdep_radiation, 'attrs', {}))
         add_dim(nc_group_timedep, 'time_rad', tdep_radiation['time_rad'].size)
 
         for name, data in tdep_radiation.items():
@@ -234,6 +264,7 @@ def save_case_input(
     # Soil profiles.
     if soil is not None:
         nc_group_soil = nc_file.createGroup('soil')
+        add_attrs(nc_group_soil, getattr(soil, 'attrs', {}))
         add_dim(nc_group_soil, 'z', soil['z'].size)
 
         for name, data in soil.items():
@@ -247,6 +278,7 @@ def save_case_input(
         string_len = source['sourcelist'].shape[1]
 
         nc_group_source = nc_file.createGroup('source')
+        add_attrs(nc_group_source, getattr(source, 'attrs', {}))
         add_dim(nc_group_source, 'emission', n_sources)
         add_dim(nc_group_source, 'string_len', string_len)
 
@@ -264,6 +296,7 @@ def save_case_input(
         for name,trajectory in trajectories.items():
 
             nc_group_traj = nc_file.createGroup(f'trajectory_{name}')
+            add_attrs(nc_group_traj, getattr(trajectory, 'attrs', {}))
             add_dim(nc_group_traj, 'itraj', trajectory['time'].size)
 
             for var_name in ['time', 'x', 'y', 'z']:
