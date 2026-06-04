@@ -144,7 +144,7 @@ def save_case_input(
 
         nc_name.unlink()
 
-    nc_file = nc4.Dataset(nc_name, mode='w', datamodel='NETCDF4')
+    nc_file = nc4.Dataset(str(nc_name), mode='w', datamodel='NETCDF4')
 
     # Create height dimension, and set height coordinate
     add_dim(nc_file, 'z', init_profiles['z'].size)
