@@ -331,8 +331,6 @@ class Emission_input:
         for field, emission in self.data.items():
             self.data[field] = emission[:,:self.kmax,:,:]
 
-        print(f'Max emission height = {self.z[self.kmax]} m., ktot={self.kmax}')
-
         self.is_clipped = True
 
 

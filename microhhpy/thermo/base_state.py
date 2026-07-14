@@ -210,6 +210,8 @@ def calc_dry_basestate(
 
     gd = calc_vertical_grid_2nd(z, zsize, float_type=float_type, remove_ghost=False)
 
+    z = gd['z']
+
     kcells = gd['ktot'] + 2
     kstart = 1
     kend = gd['ktot'] + 1
