@@ -256,7 +256,7 @@ def plot_domains(
         scatter_lat=[],
         scatter_lonlat=False,
         labels=None,
-        osm_background=False,
+        background=None,
         zoom_level=None):
     """
     Plot position of all domains.
@@ -273,10 +273,12 @@ def plot_domains(
         Scatter lat/lon points on map as reference.
     scatter_lonlat : bool, optional
         Scatter half level lon/lat points, to check match parent/child position.
-    osm_background : bool, optional
-        Add OpenStreetMap tiles as background (only with use_projection=True).
+    background : {None, 'osm', 'sat'}, optional
+        Add map tiles as background (only with use_projection=True).
+        `osm` uses OpenStreetMap street tiles, `sat` uses ESRI World
+        Imagery satellite tiles.
     zoom_level : int, optional
-        OSM zoom level (0-19). If None, automatically calculated from domain extent.
+        Tile zoom level (0-19). If None, automatically calculated from domain extent.
 
     Returns:
     -------
@@ -288,7 +290,20 @@ def plot_domains(
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
-    from cartopy.io.img_tiles import OSM
+    from cartopy.io.img_tiles import OSM, GoogleWTS
+
+    if background not in (None, 'osm', 'sat'):
+        raise ValueError(f'Invalid `background=\'{background}\'`, must be None, \'osm\' or \'sat\'.')
+
+    class ESRIWorldImagery(GoogleWTS):
+        """
+        ESRI World Imagery satellite tiles, free to use without an API key.
+        """
+        def _image_url(self, tile):
+            x, y, z = tile
+            return (
+                'https://server.arcgisonline.com/ArcGIS/rest/services/'
+                f'World_Imagery/MapServer/tile/{z}/{y}/{x}')
 
     if labels is None:
         labels = []
@@ -327,9 +342,12 @@ def plot_domains(
 
         ax.set_extent(extent)
 
-        # Add OpenStreetMap background if requested
-        if osm_background:
-            osm_tiles = OSM()
+        # Add map tiles as background if requested.
+        if background is not None:
+            if background == 'osm':
+                tiles = OSM()
+            elif background == 'sat':
+                tiles = ESRIWorldImagery()
 
             # Calculate zoom level if not provided
             if zoom_level is None:
@@ -341,7 +359,7 @@ def plot_domains(
             else:
                 zoom = zoom_level
 
-            ax.add_image(osm_tiles, zoom)
+            ax.add_image(tiles, zoom)
         else:
             # Add coast lines, countries, etc.
             ax.coastlines(resolution='10m', linewidth=0.8, color='0.5')
