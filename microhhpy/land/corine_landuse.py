@@ -61,14 +61,14 @@ def read_corine(geotiff_file, lon_0, lon_1, lat_0, lat_1):
     calc_latlon(da_full_ss)
 
     # Get x/y bounds for sub-selection full dataset:
-    ji = np.sqrt((da_full_ss.lon-lon_c)**2 + (da_full_ss.lat-lat_c)**2).argmin()
+    ji = np.sqrt((da_full_ss.lon-lon_c)**2 + (da_full_ss.lat-lat_c)**2).values.argmin()
     j,i = np.unravel_index(ji, da_full_ss.lon.shape)
 
-    i0 = int(np.abs(da_full_ss.lon[j,:]-lon_0).argmin())
-    i1 = int(np.abs(da_full_ss.lon[j,:]-lon_1).argmin())
+    i0 = int(np.abs(da_full_ss.lon[j,:]-lon_0).values.argmin())
+    i1 = int(np.abs(da_full_ss.lon[j,:]-lon_1).values.argmin())
 
-    j0 = int(np.abs(da_full_ss.lat[:,i]-lat_0).argmin())
-    j1 = int(np.abs(da_full_ss.lat[:,i]-lat_1).argmin())
+    j0 = int(np.abs(da_full_ss.lat[:,i]-lat_0).values.argmin())
+    j1 = int(np.abs(da_full_ss.lat[:,i]-lat_1).values.argmin())
 
     x0 = int(da_full_ss.x[i0])
     x1 = int(da_full_ss.x[i1])

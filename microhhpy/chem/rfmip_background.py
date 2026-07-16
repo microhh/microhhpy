@@ -52,7 +52,7 @@ def get_rfmip_species(lat, lon, exp):
     ds = xr.open_dataset(nc_file)
 
     # Select nearest location based on simple lat/lon distance.
-    site_idx = ((ds.lon - lon)**2 + (ds.lat - lat)**2).argmin()
+    site_idx = ((ds.lon - lon)**2 + (ds.lat - lat)**2).values.argmin()
     dsn = ds.isel(site=site_idx, expt=exp)
 
     exp_label = str(dsn.expt_label.values)
